@@ -1,119 +1,199 @@
 ﻿using UnityEngine;
+using UnityEngine.AI;
 
 public class TankMovement : MonoBehaviour
 {
     public int m_PlayerNumber = 1;         
     public float m_Speed = 12f;            
     public float m_TurnSpeed = 180f;       
-    public AudioSource m_MovementAudio;    
-    public AudioClip m_EngineIdling;       
-    public AudioClip m_EngineDriving;      
-    public float m_PitchRange = 0.2f;
+    public Joystick joystick;
 
-    
-    private string m_MovementAxisName;     
-    private string m_TurnAxisName;         
     private Rigidbody m_Rigidbody;         
-    private float m_MovementInputValue;    
-    private float m_TurnInputValue;        
-    private float m_OriginalPitch;         
-
-
+    private Vector3 m_Movement;
+    private NavMeshAgent agent;
+    private Transform playerTarget;
+    
+    private enum AIState { Patrol, Chase, Flee }
+    private AIState currentState;
+    private float stateTimer;
+    
+    public float sightRange = 25f;
+    private TankHealth tankHealth; 
+    
     private void Awake()
     {
         m_Rigidbody = GetComponent<Rigidbody>();
+        agent = GetComponent<NavMeshAgent>();
+        tankHealth = GetComponent<TankHealth>(); 
     }
-
 
     private void OnEnable ()
     {
-        m_Rigidbody.isKinematic = false;
-        m_MovementInputValue = 0f;
-        m_TurnInputValue = 0f;
-    }
-
-
-    private void OnDisable ()
-    {
-        m_Rigidbody.isKinematic = true;
-    }
-
-
-    private void Start()
-    {
-        m_MovementAxisName = "Vertical" + m_PlayerNumber;
-        m_TurnAxisName = "Horizontal" + m_PlayerNumber;
-
-        m_OriginalPitch = m_MovementAudio.pitch;
-    }
-    
-
-    private void Update()
-    {
-        // Store the player's input and make sure the audio for the engine is playing.
-        m_MovementInputValue = Input.GetAxis(m_MovementAxisName);
-        m_TurnInputValue = Input.GetAxis(m_TurnAxisName);
- 		EngineAudio();
-    }
-
-
-    private void EngineAudio()
-    {
-        // If there is no input (the tank is stationary)...
-        if (Mathf.Abs (m_MovementInputValue) < 0.1f && Mathf.Abs (m_TurnInputValue) < 0.1f)
+        if (m_PlayerNumber == 2 && agent != null)
         {
-            // ... and if the audio source is currently playing the driving clip...
-            if (m_MovementAudio.clip == m_EngineDriving)
-            {
-                // ... change the clip to idling and play it.
-                m_MovementAudio.clip = m_EngineIdling;
-                m_MovementAudio.pitch = Random.Range (m_OriginalPitch - m_PitchRange, m_OriginalPitch + m_PitchRange);
-                m_MovementAudio.Play ();
-            }
+            m_Rigidbody.isKinematic = true;
+            agent.enabled = true;
+            currentState = AIState.Patrol;
+            
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(transform.position, out hit, 2.0f, NavMesh.AllAreas))
+                agent.Warp(hit.position);
+            
+            if (agent.isOnNavMesh) agent.isStopped = false;
         }
         else
         {
-            // Otherwise if the tank is moving and if the idling clip is currently playing...
-            if (m_MovementAudio.clip == m_EngineIdling)
+            m_Rigidbody.isKinematic = false;
+        }
+    }
+
+    private void Start()
+    {
+        if (m_PlayerNumber == 2)
+        {
+            FindPlayerTarget();
+        }
+        else
+        {
+            if (agent != null) agent.enabled = false;
+            joystick = FindObjectOfType<FloatingJoystick>();
+        }
+    }
+
+    private void FindPlayerTarget()
+    {
+        TankMovement[] tanks = FindObjectsOfType<TankMovement>();
+        foreach (var tank in tanks)
+        {
+            if (tank.m_PlayerNumber == 1)
             {
-                // ... change the clip to driving and play.
-                m_MovementAudio.clip = m_EngineDriving;
-                m_MovementAudio.pitch = Random.Range(m_OriginalPitch - m_PitchRange, m_OriginalPitch + m_PitchRange);
-                m_MovementAudio.Play();
+                playerTarget = tank.transform;
+                break;
             }
         }
     }
 
+    private void Update()
+    {
+        if (m_PlayerNumber == 1)
+        {
+            float h = 0f;
+            float v = 0f;
+
+            // 1. Đọc dữ liệu từ Joystick (như bản gốc của bạn)
+            if (joystick != null)
+            {
+                h = joystick.Horizontal;
+                v = joystick.Vertical;
+            }
+
+            // 2. Nếu bấm phím, hệ thống sẽ ưu tiên dùng phím
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) v = 1f;
+            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) v = -1f;
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) h = -1f;
+            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) h = 1f;
+
+            // 3. Đưa tín hiệu vào hàm di chuyển gốc của bạn
+            m_Movement = GetCameraRelativeMovement(h, v);
+        }
+        else if (m_PlayerNumber == 2 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        {
+            ProcessAIBrain();
+        }
+    }
+
+    private Vector3 GetCameraRelativeMovement(float horizontal, float vertical)
+    {
+        Vector3 forward = Vector3.forward;
+        Vector3 right = Vector3.right;
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            forward = cam.transform.forward;
+            forward.y = 0f;
+            right = cam.transform.right;
+            right.y = 0f;
+        }
+        forward.Normalize();
+        right.Normalize();
+        return forward * vertical + right * horizontal;
+    }
 
     private void FixedUpdate()
     {
-        // Move and turn the tank.
-        Move ();
-        Turn ();
-    }
+        if (m_PlayerNumber != 1) return;
 
+        m_Rigidbody.angularVelocity = Vector3.zero;
+
+        if (m_Movement.magnitude > 0.2f)
+        {
+            Turn();
+            Move();
+        }
+    }
 
     private void Move()
     {
-        // Adjust the position of the tank based on the player's input.
-        // Create a vector in the direction the tank is facing with a magnitude based on the input, speed and the time between frames.
-        Vector3 movement = transform.forward * m_MovementInputValue * m_Speed * Time.deltaTime;
-
-        // Apply this movement to the rigidbody's position.
-        m_Rigidbody.MovePosition(m_Rigidbody.position + movement);
+        Vector3 targetVelocity = m_Movement.normalized * m_Speed;
+        targetVelocity.y = m_Rigidbody.velocity.y;
+        m_Rigidbody.velocity = targetVelocity;
     }
-
 
     private void Turn()
     {
-        // Adjust the rotation of the tank based on the player's input.
-         // Determine the number of degrees to be turned based on the input, speed and time between frames.
-        float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
+        m_Rigidbody.MoveRotation(Quaternion.LookRotation(m_Movement));
+    }
 
-        // Make this into a rotation in the y axis.
-        Quaternion turnRotation = Quaternion.Euler (0f, turn, 0f);
+    private void ProcessAIBrain()
+    {
+        if (playerTarget == null) FindPlayerTarget();
+        if (playerTarget == null) return;
 
-        // Apply this rotation to the rigidbody's rotation.
-        m_Rigidbody.MoveRotation (m_Rigidbody.rotation * turnRotation);
+        float distanceToPlayer = Vector3.Distance(transform.position, playerTarget.position);
+
+        if (tankHealth != null && tankHealth.m_CurrentHealth <= 20f)
+        {
+            currentState = AIState.Flee;
+        }
+        else if (distanceToPlayer <= sightRange)
+        {
+            currentState = AIState.Chase;
+        }
+        else
+        {
+            currentState = AIState.Patrol;
+        }
+
+        switch (currentState)
+        {
+            case AIState.Patrol:
+                stateTimer -= Time.deltaTime;
+                if (stateTimer <= 0f)
+                {
+                    Vector3 randomDirection = Random.insideUnitSphere * 15f;
+                    randomDirection += transform.position;
+                    NavMeshHit navHit;
+                    if (NavMesh.SamplePosition(randomDirection, out navHit, 15f, 1))
+                    {
+                        agent.SetDestination(navHit.position);
+                    }
+                    stateTimer = Random.Range(3f, 6f);
+                }
+                break;
+
+            case AIState.Chase:
+                agent.SetDestination(playerTarget.position);
+                break;
+
+            case AIState.Flee:
+                Vector3 fleeDirection = transform.position - playerTarget.position;
+                Vector3 fleePosition = transform.position + fleeDirection.normalized * 10f;
+                NavMeshHit fleeHit;
+                if (NavMesh.SamplePosition(fleePosition, out fleeHit, 10f, 1))
+                {
+                    agent.SetDestination(fleeHit.position);
+                }
+                break;
+        }
     }
 }
