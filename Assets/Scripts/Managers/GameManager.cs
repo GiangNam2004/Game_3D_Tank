@@ -5,6 +5,10 @@ using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
+    // Thêm 3 biến này vào đầu class GameManager
+public SkillButtonUI m_SpreadSkillUI;
+public SkillButtonUI m_MineSkillUI;
+public SkillButtonUI m_HomingSkillUI;
     public int m_MaxWavesPerLevel = 3;
     public float m_StartDelay = 3f;
     public float m_EndDelay = 3f;
@@ -175,17 +179,18 @@ public class GameManager : MonoBehaviour
     // ==========================================
     public void OnClick_SpreadShot()
     {
-        // Đảm bảo danh sách xe tăng tồn tại, và xe của người chơi (phần tử 0) đang sống
         if (m_Tanks != null && m_Tanks.Length > 0 && m_Tanks[0].m_Instance != null && m_Tanks[0].m_Instance.activeSelf)
         {
-            // Tìm component bắn súng trên xe tăng đó và gọi lệnh bắn chùm
             TankShooting shootingScript = m_Tanks[0].m_Instance.GetComponent<TankShooting>();
             if (shootingScript != null)
             {
                 shootingScript.FireSpreadShot();
+                // Tự động lấy biến m_SkillCooldown (5s) từ TankShooting
+                m_SpreadSkillUI.StartCooldown(shootingScript.m_SkillCooldown);
             }
         }
     }
+
     public void OnClick_DropMine()
     {
         if (m_Tanks != null && m_Tanks.Length > 0 && m_Tanks[0].m_Instance != null && m_Tanks[0].m_Instance.activeSelf)
@@ -194,9 +199,12 @@ public class GameManager : MonoBehaviour
             if (shootingScript != null)
             {
                 shootingScript.DropMine();
+                // Tự động lấy biến m_MineCooldown (8s) từ TankShooting
+                m_MineSkillUI.StartCooldown(shootingScript.m_MineCooldown);
             }
         }
     }
+
     public void OnClick_HomingMissile()
     {
         if (m_Tanks != null && m_Tanks.Length > 0 && m_Tanks[0].m_Instance != null && m_Tanks[0].m_Instance.activeSelf)
@@ -205,7 +213,9 @@ public class GameManager : MonoBehaviour
             if (shootingScript != null)
             {
                 shootingScript.FireHomingMissile();
+                // Tự động lấy biến m_HomingCooldown (10s) từ TankShooting
+                m_HomingSkillUI.StartCooldown(shootingScript.m_HomingCooldown);
             }
-        }
+        }    
     }
 }
