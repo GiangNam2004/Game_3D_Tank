@@ -22,17 +22,19 @@ public class HomingMissile : MonoBehaviour
 
     private void FindClosestEnemy()
     {
-        // Quét toàn bộ xe tăng trên bản đồ
         TankMovement[] allTanks = FindObjectsOfType<TankMovement>();
         float closestDistance = Mathf.Infinity;
 
         for (int i = 0; i < allTanks.Length; i++)
         {
-            // Bỏ qua xe của phe mình và xe đã chết
-            if (allTanks[i].m_PlayerNumber == m_ShooterPlayerNumber || !allTanks[i].gameObject.activeSelf)
+            // Lấy chip mạng của xe mục tiêu
+            Photon.Pun.PhotonView targetView = allTanks[i].GetComponent<Photon.Pun.PhotonView>();
+
+            // BỎ QUA NẾU: Không có chip mạng, hoặc là XE CỦA MÌNH (IsMine), hoặc xe đã chết
+            if (targetView == null || targetView.IsMine || !allTanks[i].gameObject.activeSelf)
                 continue;
 
-            // Tìm xe gần nhất
+            // Tìm xe địch gần nhất
             float distance = Vector3.Distance(transform.position, allTanks[i].transform.position);
             if (distance < closestDistance)
             {

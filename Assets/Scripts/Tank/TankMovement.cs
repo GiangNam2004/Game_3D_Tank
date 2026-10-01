@@ -123,24 +123,32 @@ public class TankMovement : MonoBehaviour
     {
         if (m_PlayerNumber != 1) return;
 
+        // Khóa xoay tự do để xe không bị lật
         m_Rigidbody.angularVelocity = Vector3.zero;
 
-        if (m_Movement.magnitude > 0.2f)
+        if (m_Movement.magnitude > 0.1f)
         {
             Turn();
-            Move();
+            Move(m_Movement);
+        }
+        else
+        {
+            // QUAN TRỌNG: Phanh xe lại khi bạn thả Joystick
+            // (Code cũ của bạn không gọi hàm Move khi thả tay, khiến xe bị trượt băng)
+            Move(Vector3.zero);
         }
     }
 
-    private void Move()
+    private void Move(Vector3 moveDirection)
     {
-        Vector3 targetVelocity = m_Movement.normalized * m_Speed;
-        targetVelocity.y = m_Rigidbody.velocity.y;
+        Vector3 targetVelocity = moveDirection.normalized * m_Speed;
+        targetVelocity.y = m_Rigidbody.velocity.y; // Giữ nguyên trọng lực để rơi xuống đất
         m_Rigidbody.velocity = targetVelocity;
     }
 
     private void Turn()
     {
+        // Xoay đầu xe ngoắt lập tức sang hướng di chuyển (như code gốc của bạn)
         m_Rigidbody.MoveRotation(Quaternion.LookRotation(m_Movement));
     }
 

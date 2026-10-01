@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using Photon.Pun; // 1. Bắt buộc thêm thư viện mạng
 
-public class TankHealth : MonoBehaviour
+public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang MonoBehaviourPun
 {
     public float m_StartingHealth = 100f;          
     public Slider m_Slider;                        
@@ -15,7 +16,6 @@ public class TankHealth : MonoBehaviour
     public float m_CurrentHealth; 
     private bool m_Dead;           
 
-
     private void Awake()
     {
         m_ExplosionParticles = Instantiate(m_ExplosionPrefab).GetComponent<ParticleSystem>();
@@ -23,7 +23,6 @@ public class TankHealth : MonoBehaviour
 
         m_ExplosionParticles.gameObject.SetActive(false);
     }
-
 
     private void OnEnable()
     {
@@ -33,32 +32,36 @@ public class TankHealth : MonoBehaviour
         SetHealthUI();
     }
     
-
     public void TakeDamage(float amount)
     {
-        // Adjust the tank's current health, update the UI based on the new health and check whether or not the tank is dead.
+        // 3. Thay vì tự trừ máu cục bộ, hãy gửi lệnh (RPC) cho TẤT CẢ các máy trong phòng
+        // RpcTarget.All đảm bảo cả máy người bắn và máy nạn nhân đều chạy lệnh trừ máu cùng lúc
+        photonView.RPC("TakeDamageRPC", RpcTarget.All, amount);
+    }
+
+    [PunRPC] // 4. Gắn nhãn này để Photon nhận diện đây là Hàm nhận tin nhắn qua mạng
+    public void TakeDamageRPC(float amount)
+    {
+        // Mọi logic trừ máu, đổi màu thanh máu và nổ tung được dời vào đây
         m_CurrentHealth -= amount;
         SetHealthUI();
 
-        if(m_CurrentHealth <=0f && !m_Dead){
+        if(m_CurrentHealth <= 0f && !m_Dead)
+        {
             OnDeath();
         }
     }
 
-
     private void SetHealthUI()
     {
-        // Adjust the value and colour of the slider.
         m_Slider.value = m_CurrentHealth;
         m_FillImage.color = Color.Lerp(m_ZeroHealthColor, m_FullHealthColor, m_CurrentHealth/m_StartingHealth);
     }
 
-
     private void OnDeath()
     {
-        // Play the effects for the death of the tank and deactivate it.
         m_Dead = true;
-        m_ExplosionParticles.transform.position=transform.position;
+        m_ExplosionParticles.transform.position = transform.position;
         m_ExplosionParticles.gameObject.SetActive(true);
 
         m_ExplosionParticles.Play();

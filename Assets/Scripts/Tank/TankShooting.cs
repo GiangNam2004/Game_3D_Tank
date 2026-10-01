@@ -1,11 +1,18 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using Photon.Pun; // THÊM THƯ VIỆN MẠNG
 
-public class TankShooting : MonoBehaviour
+// KẾT THỪA MonoBehaviourPun ĐỂ NHẬN DIỆN MÁY CHỦ
+public class TankShooting : MonoBehaviourPun 
 {
+
+    public Image imgCooldownDanChum;
+    public Image imgCooldownThaMin;
+    public Image imgCooldownTenLua;
+
     public Rigidbody m_HomingShellPrefab;
-    public float m_HomingCooldown = 10f; // Kỹ năng xịn nên hồi chiêu lâu chút (10s)
+    public float m_HomingCooldown = 10f; 
     private float m_NextHomingTime = 0f;
     public int m_PlayerNumber = 1;              
     public Rigidbody m_Shell;                   
@@ -18,21 +25,17 @@ public class TankShooting : MonoBehaviour
     public float m_MaxLaunchForce = 30f;        
     public float m_MaxChargeTime = 0.75f;     
     public GameObject m_MinePrefab;
-    public float m_MineCooldown = 8f; // Hồi chiêu 8 giây
+    public float m_MineCooldown = 8f; 
     private float m_NextMineTime = 0f;  
 
-    // --- Biến cho Kỹ năng Đạn Chùm ---
-    public float m_SkillCooldown = 5f;          // Thời gian chờ (5 giây)
-    private float m_NextSkillTime = 0f;         // Bộ đếm thời gian
+    public float m_SkillCooldown = 5f;          
+    private float m_NextSkillTime = 0f;         
 
     private float m_CurrentLaunchForce;         
     private float m_ChargeSpeed;                
     private bool m_Fired;                       
-    
-    // --- Biến cho Người chơi 1 ---
     private bool isCharging = false;
 
-    // --- Biến cho Bot AI (Người chơi 2) ---
     private Transform playerTarget;
     private float botFireTimer = 0f;
     public float botFireInterval = 2.5f; 
@@ -47,25 +50,53 @@ public class TankShooting : MonoBehaviour
     {
         m_ChargeSpeed = (m_MaxLaunchForce - m_MinLaunchForce) / m_MaxChargeTime;
 
-        if (m_PlayerNumber == 1)
+        if (photonView.IsMine)
         {
+            // 1. Kết nối nút Bắn thường
             GameObject fireButton = GameObject.Find("FireButton");
-            if (fireButton == null) return;
+            if (fireButton != null)
+            {
+                EventTrigger trigger = fireButton.GetComponent<EventTrigger>();
+                if (trigger == null) trigger = fireButton.AddComponent<EventTrigger>();
+                trigger.triggers.Clear();
 
-            EventTrigger trigger = fireButton.GetComponent<EventTrigger>();
-            if (trigger == null) trigger = fireButton.AddComponent<EventTrigger>();
+                EventTrigger.Entry pointerDown = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+                pointerDown.callback.AddListener((eventData) => { OnPointerDown(); });
+                trigger.triggers.Add(pointerDown);
 
-            trigger.triggers.Clear();
+                EventTrigger.Entry pointerUp = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+                pointerUp.callback.AddListener((eventData) => { OnPointerUp(); });
+                trigger.triggers.Add(pointerUp);
+            }
 
-            EventTrigger.Entry pointerDown = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            pointerDown.callback.AddListener((eventData) => { OnPointerDown(); });
-            trigger.triggers.Add(pointerDown);
+            // 2. Kết nối nút Đạn Chùm và tìm CooldownOverlay con của nó
+            GameObject btnDanChum = GameObject.Find("Btn_Skill_Spread");
+            if (btnDanChum != null) 
+            {
+                btnDanChum.GetComponent<Button>().onClick.AddListener(FireSpreadShot);
+                Transform overlay = btnDanChum.transform.Find("CooldownOverlay");
+                if (overlay != null) imgCooldownDanChum = overlay.GetComponent<Image>();
+            }
 
-            EventTrigger.Entry pointerUp = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            pointerUp.callback.AddListener((eventData) => { OnPointerUp(); });
-            trigger.triggers.Add(pointerUp);
+            // 3. Kết nối nút Thả Mìn và tìm CooldownOverlay con của nó
+            GameObject btnThaMin = GameObject.Find("Btn_Skill_Mine");
+            if (btnThaMin != null) 
+            {
+                btnThaMin.GetComponent<Button>().onClick.AddListener(DropMine);
+                Transform overlay = btnThaMin.transform.Find("CooldownOverlay");
+                if (overlay != null) imgCooldownThaMin = overlay.GetComponent<Image>();
+            }
+
+            // 4. Kết nối nút Tên Lửa và tìm CooldownOverlay con của nó
+            GameObject btnTenLua = GameObject.Find("Btn_Skill_Homing");
+            if (btnTenLua != null) 
+            {
+                btnTenLua.GetComponent<Button>().onClick.AddListener(FireHomingMissile);
+                Transform overlay = btnTenLua.transform.Find("CooldownOverlay");
+                if (overlay != null) imgCooldownTenLua = overlay.GetComponent<Image>();
+            }
         }
-        else if (m_PlayerNumber == 2)
+        else if (m_PlayerNumber == 2 && !PhotonNetwork.IsConnected) 
         {
             FindPlayerTarget();
         }
@@ -86,7 +117,8 @@ public class TankShooting : MonoBehaviour
 
     public void OnPointerDown()
     {
-        if (m_PlayerNumber != 1) return; 
+        // Bảo vệ: Nếu không phải xe mình thì cấm kích hoạt súng
+        if (!photonView.IsMine) return; 
         
         isCharging = true;
         m_Fired = false;
@@ -98,7 +130,7 @@ public class TankShooting : MonoBehaviour
 
     public void OnPointerUp()
     {
-        if (m_PlayerNumber != 1 || !isCharging) return;
+        if (!photonView.IsMine || !isCharging) return;
         
         isCharging = false;
         if (!m_Fired) Fire ();
@@ -108,7 +140,8 @@ public class TankShooting : MonoBehaviour
     {
         m_AimSlider.value = m_MinLaunchForce;
 
-        if (m_PlayerNumber == 1)
+        // Chỉ xe của mình mới được chạy vòng lặp cập nhật súng
+        if (photonView.IsMine)
         {
             if (m_CurrentLaunchForce >= m_MaxLaunchForce && !m_Fired)
             {
@@ -121,10 +154,19 @@ public class TankShooting : MonoBehaviour
                 m_AimSlider.value = m_CurrentLaunchForce;
             }
         }
-        else if (m_PlayerNumber == 2)
+        else if (m_PlayerNumber == 2 && !PhotonNetwork.IsConnected)
         {
             BotUpdate();
         }
+        // Tính toán thời gian còn lại chia cho tổng thời gian hồi chiêu để ra tỷ lệ 0 -> 1
+    if (imgCooldownDanChum != null) 
+        imgCooldownDanChum.fillAmount = Mathf.Max(0, (m_NextSkillTime - Time.time) / m_SkillCooldown);
+        
+    if (imgCooldownThaMin != null) 
+        imgCooldownThaMin.fillAmount = Mathf.Max(0, (m_NextMineTime - Time.time) / m_MineCooldown);
+        
+    if (imgCooldownTenLua != null) 
+        imgCooldownTenLua.fillAmount = Mathf.Max(0, (m_NextHomingTime - Time.time) / m_HomingCooldown);
     }
 
     private void BotUpdate()
@@ -167,16 +209,11 @@ public class TankShooting : MonoBehaviour
         m_CurrentLaunchForce = m_MinLaunchForce;
     }
 
-    // ==========================================
-    // HÀM KÍCH HOẠT KỸ NĂNG ĐẠN CHÙM
-    // ==========================================
     public void FireSpreadShot()
     {
         if (Time.time < m_NextSkillTime) return; 
 
         float angle = 20f; 
-        
-        // SỬA LỖI: Tách vị trí sinh đạn sang 2 bên hông (khoảng 1 đơn vị) để chúng không chạm nhau
         Vector3 spawnPos = m_FireTransform.position;
         Vector3 offset = m_FireTransform.right * 1f; 
 
@@ -184,7 +221,6 @@ public class TankShooting : MonoBehaviour
         Quaternion leftRot = m_FireTransform.rotation * Quaternion.Euler(0, -angle, 0);
         Quaternion rightRot = m_FireTransform.rotation * Quaternion.Euler(0, angle, 0);
 
-        // Đưa offset vào lệnh sinh đạn
         Rigidbody shellCenter = Instantiate(m_Shell, spawnPos, centerRot) as Rigidbody;
         Rigidbody shellLeft = Instantiate(m_Shell, spawnPos - offset, leftRot) as Rigidbody;
         Rigidbody shellRight = Instantiate(m_Shell, spawnPos + offset, rightRot) as Rigidbody;
@@ -202,11 +238,11 @@ public class TankShooting : MonoBehaviour
 
         m_NextSkillTime = Time.time + m_SkillCooldown; 
     }
+
     public void DropMine()
     {
         if (Time.time < m_NextMineTime) return;
 
-        // Vị trí thả: Lùi lại sau đuôi xe 2.5 mét và nâng lên khỏi mặt đất 0.5 mét
         Vector3 dropPos = transform.position - transform.forward * 2.5f;
         dropPos.y += 0.5f; 
 
@@ -217,14 +253,13 @@ public class TankShooting : MonoBehaviour
 
         m_NextMineTime = Time.time + m_MineCooldown;
     }
+
     public void FireHomingMissile()
     {
         if (Time.time < m_NextHomingTime) return;
 
-        // Sinh ra tên lửa đuổi
         Rigidbody shellInstance = Instantiate(m_HomingShellPrefab, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody;
         
-        // Truyền thông tin để tên lửa biết ai là chủ nhân, tránh việc tự quay lại cắn chủ
         HomingMissile homingScript = shellInstance.GetComponent<HomingMissile>();
         if (homingScript != null)
         {
