@@ -26,12 +26,15 @@ public class TankManager
 
         m_ColoredPlayerText = "<color=#" + ColorUtility.ToHtmlStringRGB(m_PlayerColor) + ">PLAYER " + m_PlayerNumber + "</color>";
 
+        // ĐÃ TẮT TÍNH NĂNG ÉP MÀU BẰNG CÁCH ĐẶT TRONG DẤU CHÚ THÍCH /* ... */
+        /*
         MeshRenderer[] renderers = m_Instance.GetComponentsInChildren<MeshRenderer> ();
 
         for (int i = 0; i < renderers.Length; i++)
         {
             renderers[i].material.color = m_PlayerColor;
         }
+        */
     }
 
     public void DisableControl ()

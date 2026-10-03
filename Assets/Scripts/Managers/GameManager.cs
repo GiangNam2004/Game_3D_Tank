@@ -33,14 +33,47 @@ public SkillButtonUI m_HomingSkillUI;
         StartCoroutine (GameLoop ());
     }
 
-    private void SpawnAllTanks()
+   private void SpawnAllTanks()
     {
+        // 1. Đọc tên xe người chơi đã chọn
+        string selectedTankName = PlayerPrefs.GetString("SelectedTank", "Tank");
+        GameObject myTankPrefab = Resources.Load<GameObject>(selectedTankName);
+
+        // 2. Chọn xe cho Bot sao cho KHÁC với xe của người chơi
+        string botTankName = (selectedTankName == "Tank2") ? "Tank1" : "Tank2";
+        GameObject botTankPrefab = Resources.Load<GameObject>(botTankName);
+
         for (int i = 0; i < m_Tanks.Length; i++)
         {
-            m_Tanks[i].m_Instance = Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
-            m_Tanks[i].m_PlayerNumber = (i == 0) ? 1 : 2; 
+            GameObject prefabToSpawn;
+
+            // ĐÃ SỬA LỖI Ở ĐÂY: Dùng i == 0 để nhận diện Người chơi 1 thay vì m_PlayerNumber
+            if (i == 0)
+            {
+                prefabToSpawn = myTankPrefab != null ? myTankPrefab : m_TankPrefab;
+                
+                if (myTankPrefab == null) 
+                    Debug.LogError("LỖI: Không tìm thấy file '" + selectedTankName + "' trong thư mục Resources!");
+            }
+            else // i >= 1 LÀ BOT
+            {
+                prefabToSpawn = botTankPrefab != null ? botTankPrefab : m_TankPrefab;
+            }
+
+            // Sinh xe ra bản đồ
+            m_Tanks[i].m_Instance = Instantiate(prefabToSpawn, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
+            
+            // Gán số hiệu cho xe (1 là Player, 2 là Bot)
+            m_Tanks[i].m_PlayerNumber = i + 1;
             m_Tanks[i].Setup();
-            m_Tanks[i].m_Instance.SetActive(false); 
+            // --- THÊM ĐOẠN NÀY ĐỂ ẨN/HIỆN NÚT OFFLINE ---
+            if (i == 0) // Chỉ xét UI cho xe của người chơi
+            {
+                TankShooting pShoot = m_Tanks[i].m_Instance.GetComponent<TankShooting>();
+                if (m_SpreadSkillUI != null) m_SpreadSkillUI.gameObject.SetActive(pShoot.m_HasSpreadShot);
+                if (m_MineSkillUI != null) m_MineSkillUI.gameObject.SetActive(pShoot.m_HasMine);
+                if (m_HomingSkillUI != null) m_HomingSkillUI.gameObject.SetActive(pShoot.m_HasHomingMissile);
+            }
         }
     }
 

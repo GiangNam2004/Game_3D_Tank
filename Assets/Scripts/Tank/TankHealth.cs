@@ -34,9 +34,16 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
     
     public void TakeDamage(float amount)
     {
-        // 3. Thay vì tự trừ máu cục bộ, hãy gửi lệnh (RPC) cho TẤT CẢ các máy trong phòng
-        // RpcTarget.All đảm bảo cả máy người bắn và máy nạn nhân đều chạy lệnh trừ máu cùng lúc
-        photonView.RPC("TakeDamageRPC", RpcTarget.All, amount);
+        // Nếu có mạng VÀ xe đã được cấp ID mạng, thì gửi lệnh RPC
+        if (PhotonNetwork.IsConnected && photonView.ViewID != 0)
+        {
+            photonView.RPC("TakeDamageRPC", RpcTarget.All, amount);
+        }
+        else 
+        {
+            // Nếu chơi Offline, trừ máu trực tiếp luôn không cần gửi mạng
+            TakeDamageRPC(amount);
+        }
     }
 
     [PunRPC] // 4. Gắn nhãn này để Photon nhận diện đây là Hàm nhận tin nhắn qua mạng

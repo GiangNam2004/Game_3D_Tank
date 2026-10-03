@@ -2,9 +2,9 @@
 
 public class HomingMissile : MonoBehaviour
 {
-    public float m_Speed = 20f;        // Tốc độ bay của tên lửa
-    public float m_TurnSpeed = 5f;     // Tốc độ bẻ lái (càng cao cua càng gắt)
-    public int m_ShooterPlayerNumber = 1; // Đánh dấu phe bắn để không tự đuổi mình
+    public float m_Speed = 20f;        
+    public float m_TurnSpeed = 5f;     
+    public int m_ShooterPlayerNumber = 1; // Đánh dấu phe bắn
 
     private Transform m_Target;
     private Rigidbody m_Rigidbody;
@@ -13,7 +13,6 @@ public class HomingMissile : MonoBehaviour
     {
         m_Rigidbody = GetComponent<Rigidbody>();
         
-        // Tắt trọng lực để đạn bay thẳng như tên lửa thay vì rơi vòng cung
         if (m_Rigidbody != null) 
             m_Rigidbody.useGravity = false;
 
@@ -27,15 +26,34 @@ public class HomingMissile : MonoBehaviour
 
         for (int i = 0; i < allTanks.Length; i++)
         {
-            // Lấy chip mạng của xe mục tiêu
-            Photon.Pun.PhotonView targetView = allTanks[i].GetComponent<Photon.Pun.PhotonView>();
-
-            // BỎ QUA NẾU: Không có chip mạng, hoặc là XE CỦA MÌNH (IsMine), hoặc xe đã chết
-            if (targetView == null || targetView.IsMine || !allTanks[i].gameObject.activeSelf)
+            // 1. Bỏ qua nếu xe đã chết
+            if (!allTanks[i].gameObject.activeSelf)
                 continue;
 
-            // Tìm xe địch gần nhất
+            // 2. NHẬN DIỆN ĐỊCH/TA (Hỗ trợ cả Online và Offline)
+            bool isMyTank = false;
+            if (Photon.Pun.PhotonNetwork.IsConnected)
+            {
+                Photon.Pun.PhotonView targetView = allTanks[i].GetComponent<Photon.Pun.PhotonView>();
+                if (targetView != null && targetView.IsMine) 
+                    isMyTank = true;
+            }
+            else
+            {
+                // Chơi Offline: So sánh số hiệu phe (Player 1 hoặc Bot 2)
+                if (allTanks[i].m_PlayerNumber == m_ShooterPlayerNumber) 
+                    isMyTank = true;
+            }
+
+            if (isMyTank) continue;
+
+            // 3. TÍNH KHOẢNG CÁCH VÀ CHỐT CHẶN AN TOÀN
             float distance = Vector3.Distance(transform.position, allTanks[i].transform.position);
+            
+            // Bỏ qua xe ở cự ly < 3m (ngay sát nòng súng) để tên lửa không quay đầu tự sát
+            if (distance < 3f) continue;
+
+            // 4. Khóa mục tiêu gần nhất
             if (distance < closestDistance)
             {
                 closestDistance = distance;
@@ -46,24 +64,19 @@ public class HomingMissile : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Nếu có mục tiêu và mục tiêu còn sống thì bẻ lái đuổi theo
         if (m_Target != null && m_Target.gameObject.activeSelf)
         {
-            // Tính toán hướng bay về phía mục tiêu (ngắm vào thân xe thay vì dưới chân)
             Vector3 targetPos = m_Target.position;
             targetPos.y += 1f; // Nâng tâm ngắm lên giữa thân xe tăng
             Vector3 direction = (targetPos - transform.position).normalized;
             
-            // Xoay đầu đạn từ từ hướng về mục tiêu
             Quaternion lookRotation = Quaternion.LookRotation(direction);
             m_Rigidbody.MoveRotation(Quaternion.Slerp(transform.rotation, lookRotation, m_TurnSpeed * Time.fixedDeltaTime));
             
-            // Ép viên đạn bay thẳng theo hướng đầu nòng hiện tại
             m_Rigidbody.velocity = transform.forward * m_Speed;
         }
         else
         {
-            // Nếu mất dấu mục tiêu (xe địch đã nổ), cứ bay thẳng tiếp cho đến khi chạm tường
             if (m_Rigidbody != null)
                 m_Rigidbody.velocity = transform.forward * m_Speed;
         }
