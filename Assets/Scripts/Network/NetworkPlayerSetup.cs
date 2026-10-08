@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using Photon.Pun;
-using UnityEngine.SceneManagement; // Thư viện để kiểm tra tên màn chơi
+using UnityEngine.SceneManagement; 
 
 public class NetworkPlayerSetup : MonoBehaviourPun 
 {
@@ -13,18 +13,29 @@ public class NetworkPlayerSetup : MonoBehaviourPun
             // NẾU ĐANG Ở LOBBY: Lấy Main Camera để chuẩn bị đi theo sau lưng
             if (SceneManager.GetActiveScene().name == "Lobby")
             {
-                mainCam = Camera.main.transform;
-                mainCam.rotation = Quaternion.Euler(45f, 0f, 0f);
+                if (Camera.main != null)
+                {
+                    mainCam = Camera.main.transform;
+                    mainCam.rotation = Quaternion.Euler(45f, 0f, 0f);
+                }
             }
         }
         else
-{
-    // Khóa bánh xe đối thủ
-    GetComponent<TankMovement>().enabled = false;
+        {
+            // Tìm và khóa bánh xe đối thủ (Chỉ khóa nếu tìm thấy script)
+            TankMovement moveScript = GetComponent<TankMovement>();
+            if (moveScript != null) 
+            {
+                moveScript.enabled = false;
+            }
 
-    // BẠN CẦN THÊM DÒNG NÀY (Thay TankShooting bằng tên file code bắn súng của bạn):
-    GetComponent<TankShooting>().enabled = false; 
-}
+            // Tìm và khóa súng đối thủ (Tránh lỗi văng game trên Phân thân)
+            TankShooting shootScript = GetComponent<TankShooting>();
+            if (shootScript != null) 
+            {
+                shootScript.enabled = false; 
+            }
+        }
     }
 
     void LateUpdate()

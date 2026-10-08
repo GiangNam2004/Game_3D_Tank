@@ -6,9 +6,9 @@ using UnityEngine.UI;
 public class GameManager : MonoBehaviour
 {
     // Thêm 3 biến này vào đầu class GameManager
-public SkillButtonUI m_SpreadSkillUI;
-public SkillButtonUI m_MineSkillUI;
-public SkillButtonUI m_HomingSkillUI;
+    public SkillButtonUI m_SpreadSkillUI;
+    public SkillButtonUI m_MineSkillUI;
+    public SkillButtonUI m_HomingSkillUI;
     public int m_MaxWavesPerLevel = 3;
     public float m_StartDelay = 3f;
     public float m_EndDelay = 3f;
@@ -47,7 +47,7 @@ public SkillButtonUI m_HomingSkillUI;
         {
             GameObject prefabToSpawn;
 
-            // ĐÃ SỬA LỖI Ở ĐÂY: Dùng i == 0 để nhận diện Người chơi 1 thay vì m_PlayerNumber
+            // Dùng i == 0 để nhận diện Người chơi 1 thay vì m_PlayerNumber
             if (i == 0)
             {
                 prefabToSpawn = myTankPrefab != null ? myTankPrefab : m_TankPrefab;
@@ -66,13 +66,14 @@ public SkillButtonUI m_HomingSkillUI;
             // Gán số hiệu cho xe (1 là Player, 2 là Bot)
             m_Tanks[i].m_PlayerNumber = i + 1;
             m_Tanks[i].Setup();
-            // --- THÊM ĐOẠN NÀY ĐỂ ẨN/HIỆN NÚT OFFLINE ---
-            if (i == 0) // Chỉ xét UI cho xe của người chơi
+            
+            // --- ĐÃ BỔ SUNG: Kiểm tra thêm kỹ năng của Tank 2 để hiện nút ---
+            if (i == 0) 
             {
                 TankShooting pShoot = m_Tanks[i].m_Instance.GetComponent<TankShooting>();
-                if (m_SpreadSkillUI != null) m_SpreadSkillUI.gameObject.SetActive(pShoot.m_HasSpreadShot);
-                if (m_MineSkillUI != null) m_MineSkillUI.gameObject.SetActive(pShoot.m_HasMine);
-                if (m_HomingSkillUI != null) m_HomingSkillUI.gameObject.SetActive(pShoot.m_HasHomingMissile);
+                if (m_SpreadSkillUI != null) m_SpreadSkillUI.gameObject.SetActive(pShoot.m_HasSpreadShot || pShoot.m_HasGiantShell || pShoot.m_HasElemental);
+                if (m_MineSkillUI != null) m_MineSkillUI.gameObject.SetActive(pShoot.m_HasMine || pShoot.m_HasTurret || pShoot.m_HasSmoke);
+                if (m_HomingSkillUI != null) m_HomingSkillUI.gameObject.SetActive(pShoot.m_HasHomingMissile || pShoot.m_HasClone || pShoot.m_HasShield);
             }
         }
     }
@@ -208,7 +209,7 @@ public SkillButtonUI m_HomingSkillUI;
     }
 
     // ==========================================
-    // CẦU NỐI UI: GỌI KỸ NĂNG ĐẠN CHÙM CHO NGƯỜI CHƠI
+    // CẦU NỐI UI: ĐÃ BỔ SUNG ĐẦY ĐỦ KỸ NĂNG TANK 2
     // ==========================================
     public void OnClick_SpreadShot()
     {
@@ -217,8 +218,11 @@ public SkillButtonUI m_HomingSkillUI;
             TankShooting shootingScript = m_Tanks[0].m_Instance.GetComponent<TankShooting>();
             if (shootingScript != null)
             {
-                shootingScript.FireSpreadShot();
-                // Tự động lấy biến m_SkillCooldown (5s) từ TankShooting
+                if (shootingScript.m_HasSpreadShot) shootingScript.FireSpreadShot();
+                else if (shootingScript.m_HasGiantShell) shootingScript.FireGiantShell();
+                // Bổ sung gọi kỹ năng Bắn đạn nguyên tố của Tank 2
+                else if (shootingScript.m_HasElemental) shootingScript.FireElementalShot();
+                
                 m_SpreadSkillUI.StartCooldown(shootingScript.m_SkillCooldown);
             }
         }
@@ -231,8 +235,11 @@ public SkillButtonUI m_HomingSkillUI;
             TankShooting shootingScript = m_Tanks[0].m_Instance.GetComponent<TankShooting>();
             if (shootingScript != null)
             {
-                shootingScript.DropMine();
-                // Tự động lấy biến m_MineCooldown (8s) từ TankShooting
+                if (shootingScript.m_HasMine) shootingScript.DropMine();
+                else if (shootingScript.m_HasTurret) shootingScript.PlaceTurret();
+                // Bổ sung gọi kỹ năng Ném lựu đạn khói của Tank 2
+                else if (shootingScript.m_HasSmoke) shootingScript.DropSmoke();
+                
                 m_MineSkillUI.StartCooldown(shootingScript.m_MineCooldown);
             }
         }
@@ -245,8 +252,11 @@ public SkillButtonUI m_HomingSkillUI;
             TankShooting shootingScript = m_Tanks[0].m_Instance.GetComponent<TankShooting>();
             if (shootingScript != null)
             {
-                shootingScript.FireHomingMissile();
-                // Tự động lấy biến m_HomingCooldown (10s) từ TankShooting
+                if (shootingScript.m_HasHomingMissile) shootingScript.FireHomingMissile();
+                else if (shootingScript.m_HasClone) shootingScript.CreateClone();
+                // Bổ sung gọi kỹ năng Bật khiên của Tank 2
+                else if (shootingScript.m_HasShield) shootingScript.ActivateShield();
+                
                 m_HomingSkillUI.StartCooldown(shootingScript.m_HomingCooldown);
             }
         }    

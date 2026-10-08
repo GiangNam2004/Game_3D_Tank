@@ -29,7 +29,8 @@ public class TankMovement : MonoBehaviour
 
     private void OnEnable ()
     {
-        if (m_PlayerNumber == 2 && agent != null)
+        // ĐÃ SỬA: Áp dụng cho TẤT CẢ các Bot (2, 3, 4...)
+        if (m_PlayerNumber >= 2 && agent != null)
         {
             m_Rigidbody.isKinematic = true;
             agent.enabled = true;
@@ -41,7 +42,7 @@ public class TankMovement : MonoBehaviour
             
             if (agent.isOnNavMesh) agent.isStopped = false;
         }
-        else
+        else if (m_PlayerNumber == 1) // Chỉ xe của người chơi mới dùng vật lý cơ bản
         {
             m_Rigidbody.isKinematic = false;
         }
@@ -49,11 +50,12 @@ public class TankMovement : MonoBehaviour
 
     private void Start()
     {
-        if (m_PlayerNumber == 2)
+        // ĐÃ SỬA: TẤT CẢ các Bot đều phải đi tìm mục tiêu
+        if (m_PlayerNumber >= 2)
         {
             FindPlayerTarget();
         }
-        else
+        else // Người chơi
         {
             if (agent != null) agent.enabled = false;
             joystick = FindObjectOfType<FloatingJoystick>();
@@ -80,23 +82,21 @@ public class TankMovement : MonoBehaviour
             float h = 0f;
             float v = 0f;
 
-            // 1. Đọc dữ liệu từ Joystick (như bản gốc của bạn)
             if (joystick != null)
             {
                 h = joystick.Horizontal;
                 v = joystick.Vertical;
             }
 
-            // 2. Nếu bấm phím, hệ thống sẽ ưu tiên dùng phím
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) v = 1f;
             if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) v = -1f;
             if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) h = -1f;
             if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) h = 1f;
 
-            // 3. Đưa tín hiệu vào hàm di chuyển gốc của bạn
             m_Movement = GetCameraRelativeMovement(h, v);
         }
-        else if (m_PlayerNumber == 2 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        // ĐÃ SỬA: TẤT CẢ Bot đều được chạy vòng lặp suy nghĩ AI
+        else if (m_PlayerNumber >= 2 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
             ProcessAIBrain();
         }
@@ -123,7 +123,6 @@ public class TankMovement : MonoBehaviour
     {
         if (m_PlayerNumber != 1) return;
 
-        // Khóa xoay tự do để xe không bị lật
         m_Rigidbody.angularVelocity = Vector3.zero;
 
         if (m_Movement.magnitude > 0.1f)
@@ -133,8 +132,6 @@ public class TankMovement : MonoBehaviour
         }
         else
         {
-            // QUAN TRỌNG: Phanh xe lại khi bạn thả Joystick
-            // (Code cũ của bạn không gọi hàm Move khi thả tay, khiến xe bị trượt băng)
             Move(Vector3.zero);
         }
     }
@@ -142,13 +139,12 @@ public class TankMovement : MonoBehaviour
     private void Move(Vector3 moveDirection)
     {
         Vector3 targetVelocity = moveDirection.normalized * m_Speed;
-        targetVelocity.y = m_Rigidbody.velocity.y; // Giữ nguyên trọng lực để rơi xuống đất
+        targetVelocity.y = m_Rigidbody.velocity.y; 
         m_Rigidbody.velocity = targetVelocity;
     }
 
     private void Turn()
     {
-        // Xoay đầu xe ngoắt lập tức sang hướng di chuyển (như code gốc của bạn)
         m_Rigidbody.MoveRotation(Quaternion.LookRotation(m_Movement));
     }
 
