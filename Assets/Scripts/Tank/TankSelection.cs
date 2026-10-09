@@ -8,15 +8,18 @@ public class TankSelection : MonoBehaviour
     public Button btnTank1;
     public Button btnTank; // Xe gốc
     public Button btnTank2;
+    public Button btnTank3; // <--- MỚI: Khai báo thêm ô chứa nút Tank 3
 
     private void Start()
     {
         SelectTank("Tank"); // Mặc định
 
-        // Đổi "Tank 1" thành "Tank1", "Tank 2" thành "Tank2"
         if (btnTank1 != null) btnTank1.onClick.AddListener(() => SelectTank("Tank1"));
         if (btnTank != null) btnTank.onClick.AddListener(() => SelectTank("Tank"));
         if (btnTank2 != null) btnTank2.onClick.AddListener(() => SelectTank("Tank2"));
+        
+        // <--- MỚI: Thêm lệnh lắng nghe khi người chơi bấm nút Tank 3
+        if (btnTank3 != null) btnTank3.onClick.AddListener(() => SelectTank("Tank3"));
     }
 
     public void SelectTank(string tankPrefabName)

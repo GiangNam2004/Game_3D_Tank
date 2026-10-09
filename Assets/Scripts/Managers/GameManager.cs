@@ -33,59 +33,73 @@ public class GameManager : MonoBehaviour
         StartCoroutine (GameLoop ());
     }
 
-   private void SpawnAllTanks()
+  private void SpawnAllTanks()
     {
         // 1. Đọc tên xe người chơi đã chọn
         string selectedTankName = PlayerPrefs.GetString("SelectedTank", "Tank");
         GameObject myTankPrefab = Resources.Load<GameObject>(selectedTankName);
 
-        // 2. Chọn xe cho Bot sao cho KHÁC với xe của người chơi
-        string botTankName = (selectedTankName == "Tank2") ? "Tank1" : "Tank2";
-        GameObject botTankPrefab = Resources.Load<GameObject>(botTankName);
+        // 2. Tải Prefab "Enemy" cho lính thường
+        GameObject botTankPrefab = Resources.Load<GameObject>("Enemy");
 
         for (int i = 0; i < m_Tanks.Length; i++)
         {
-            GameObject prefabToSpawn;
+            GameObject finalPrefabToSpawn = null; 
 
-            // Dùng i == 0 để nhận diện Người chơi 1 thay vì m_PlayerNumber
-            if (i == 0)
+            // --- BƯỚC XÁC ĐỊNH LOẠI XE ---
+            if (i == 0) 
             {
-                prefabToSpawn = myTankPrefab != null ? myTankPrefab : m_TankPrefab;
-                
+                finalPrefabToSpawn = myTankPrefab != null ? myTankPrefab : m_TankPrefab;
                 if (myTankPrefab == null) 
                     Debug.LogError("LỖI: Không tìm thấy file '" + selectedTankName + "' trong thư mục Resources!");
             }
-            else // i >= 1 LÀ BOT
+            else 
             {
-                prefabToSpawn = botTankPrefab != null ? botTankPrefab : m_TankPrefab;
+                if (m_Tanks[i].m_CustomPrefab != null)
+                {
+                    finalPrefabToSpawn = m_Tanks[i].m_CustomPrefab; 
+                }
+                else 
+                {
+                    finalPrefabToSpawn = botTankPrefab != null ? botTankPrefab : m_TankPrefab;
+                }
             }
 
-            // Sinh xe ra bản đồ
-            m_Tanks[i].m_Instance = Instantiate(prefabToSpawn, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
-            
-            // Gán số hiệu cho xe (1 là Player, 2 là Bot)
+            // --- BƯỚC ĐẺ XE RA SÂN ---
+            m_Tanks[i].m_Instance = Instantiate(finalPrefabToSpawn, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;            
             m_Tanks[i].m_PlayerNumber = i + 1;
             m_Tanks[i].Setup();
             
-            // --- ĐÃ BỔ SUNG: Kiểm tra thêm kỹ năng của Tank 2 để hiện nút ---
+            // --- CÀI ĐẶT BẬT/TẮT UI KỸ NĂNG (ĐÃ CẬP NHẬT TANK 3) ---
             if (i == 0) 
             {
                 TankShooting pShoot = m_Tanks[i].m_Instance.GetComponent<TankShooting>();
-                if (m_SpreadSkillUI != null) m_SpreadSkillUI.gameObject.SetActive(pShoot.m_HasSpreadShot || pShoot.m_HasGiantShell || pShoot.m_HasElemental);
-                if (m_MineSkillUI != null) m_MineSkillUI.gameObject.SetActive(pShoot.m_HasMine || pShoot.m_HasTurret || pShoot.m_HasSmoke);
-                if (m_HomingSkillUI != null) m_HomingSkillUI.gameObject.SetActive(pShoot.m_HasHomingMissile || pShoot.m_HasClone || pShoot.m_HasShield);
+                
+                // Nút 1
+                if (m_SpreadSkillUI != null) 
+                    m_SpreadSkillUI.gameObject.SetActive(pShoot.m_HasSpreadShot || pShoot.m_HasGiantShell || pShoot.m_HasElemental || pShoot.m_HasDeathSpin);
+                
+                // Nút 2
+                if (m_MineSkillUI != null) 
+                    m_MineSkillUI.gameObject.SetActive(pShoot.m_HasMine || pShoot.m_HasTurret || pShoot.m_HasSmoke || pShoot.m_HasMagneticPull);
+                
+                // Nút 3
+                if (m_HomingSkillUI != null) 
+                    m_HomingSkillUI.gameObject.SetActive(pShoot.m_HasHomingMissile || pShoot.m_HasClone || pShoot.m_HasShield || pShoot.m_HasDash);
             }
         }
     }
 
     private void SetCameraTargets()
     {
-        Transform[] targets = new Transform[m_Tanks.Length];
-        for (int i = 0; i < targets.Length; i++)
-        {
-            targets[i] = m_Tanks[i].m_Instance.transform;
-        }
-        m_CameraControl.m_Targets = targets;
+        // Chỉ tạo một mảng chứa đúng 1 mục tiêu duy nhất
+        Transform[] playerTarget = new Transform[1];
+        
+        // Gán chiếc xe đầu tiên (m_Tanks[0] - chính là xe của người chơi) vào mảng này
+        playerTarget[0] = m_Tanks[0].m_Instance.transform;
+        
+        // Giao nhiệm vụ theo dõi cho Camera
+        m_CameraControl.m_Targets = playerTarget;
     }
 
     private IEnumerator GameLoop ()

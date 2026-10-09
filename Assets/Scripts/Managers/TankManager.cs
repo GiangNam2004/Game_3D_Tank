@@ -5,7 +5,8 @@ using UnityEngine;
 public class TankManager
 {
     public Color m_PlayerColor;                             
-    public Transform m_SpawnPoint;                          
+    public Transform m_SpawnPoint;     
+    public GameObject m_CustomPrefab;                     
     [HideInInspector] public int m_PlayerNumber;            
     [HideInInspector] public string m_ColoredPlayerText;    
     [HideInInspector] public GameObject m_Instance;         

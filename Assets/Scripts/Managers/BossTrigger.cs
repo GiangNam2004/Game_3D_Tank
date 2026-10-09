@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI; 
 using TMPro; 
 
-public class NPCInteract : MonoBehaviour
+public class BossTrigger : MonoBehaviour
 {
     [Header("1. Khung UI chung (Kéo UI từ Hierarchy vào)")]
     public GameObject dialoguePanel;
