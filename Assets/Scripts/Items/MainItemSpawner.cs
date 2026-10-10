@@ -22,11 +22,16 @@ public class MainItemSpawner : MonoBehaviour
 
     private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != "Main" || FindObjectOfType<MainItemSpawner>() != null)
+        if (!IsGameplayScene(scene.name) || FindObjectOfType<MainItemSpawner>() != null)
             return;
 
         GameObject managerObject = new GameObject("Main Item Spawner");
         managerObject.AddComponent<MainItemSpawner>();
+    }
+
+    private static bool IsGameplayScene(string sceneName)
+    {
+        return sceneName == "Main" || sceneName == "Main 1";
     }
 
     private void Start()
