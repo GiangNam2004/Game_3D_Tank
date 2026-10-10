@@ -18,9 +18,15 @@ public class ItemPickup : MonoBehaviour
 
     private void Awake()
     {
-        Collider itemCollider = GetComponent<Collider>();
-        if (itemCollider != null)
-            itemCollider.isTrigger = true;
+        Collider[] itemColliders = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < itemColliders.Length; i++)
+            itemColliders[i].isTrigger = true;
+
+        if (itemColliders.Length == 0)
+        {
+            SphereCollider pickupCollider = gameObject.AddComponent<SphereCollider>();
+            pickupCollider.isTrigger = true;
+        }
     }
 
     private void OnTriggerEnter(Collider other)

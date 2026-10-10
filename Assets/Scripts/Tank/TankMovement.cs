@@ -4,7 +4,7 @@ using UnityEngine.AI;
 public class TankMovement : MonoBehaviour
 {
     public int m_PlayerNumber = 1;         
-    public float m_Speed = 12f;            
+    public float m_Speed = 13.8f;            
     public float m_TurnSpeed = 180f;       
     public Joystick joystick;
     public float m_SpeedMultiplier = 1f;
@@ -20,15 +20,25 @@ public class TankMovement : MonoBehaviour
     private float stateTimer;
     private float speedBoostUntil;
     
-    public float sightRange = 25f;
+    public float sightRange = 60f;
+    public float patrolRadius = 35f;
+    public float targetRefreshInterval = 1f;
+    private float targetRefreshTimer;
     private TankHealth tankHealth; 
     
     private void Awake()
     {
         m_Rigidbody = GetComponent<Rigidbody>();
         agent = GetComponent<NavMeshAgent>();
+        if (m_PlayerNumber == 1 && m_Speed <= 12f)
+            m_Speed = 12f * 1.15f;
+
         if (agent != null)
-            baseAgentSpeed = agent.speed;
+        {
+            baseAgentSpeed = agent.speed * 1.15f;
+            agent.speed = baseAgentSpeed;
+        }
+
         tankHealth = GetComponent<TankHealth>(); 
     }
 
@@ -59,6 +69,7 @@ public class TankMovement : MonoBehaviour
         if (m_PlayerNumber >= 2)
         {
             FindPlayerTarget();
+            targetRefreshTimer = targetRefreshInterval;
         }
         else // Người chơi
         {
@@ -110,6 +121,13 @@ public class TankMovement : MonoBehaviour
         // ĐÃ SỬA: TẤT CẢ Bot đều được chạy vòng lặp suy nghĩ AI
         else if (m_PlayerNumber >= 2 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
+            targetRefreshTimer -= Time.deltaTime;
+            if (targetRefreshTimer <= 0f)
+            {
+                FindPlayerTarget();
+                targetRefreshTimer = targetRefreshInterval;
+            }
+
             ProcessAIBrain();
         }
     }
@@ -194,10 +212,10 @@ public class TankMovement : MonoBehaviour
                 stateTimer -= Time.deltaTime;
                 if (stateTimer <= 0f)
                 {
-                    Vector3 randomDirection = Random.insideUnitSphere * 15f;
+                    Vector3 randomDirection = Random.insideUnitSphere * patrolRadius;
                     randomDirection += transform.position;
                     NavMeshHit navHit;
-                    if (NavMesh.SamplePosition(randomDirection, out navHit, 15f, 1))
+                    if (NavMesh.SamplePosition(randomDirection, out navHit, patrolRadius, NavMesh.AllAreas))
                     {
                         agent.SetDestination(navHit.position);
                     }

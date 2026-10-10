@@ -63,7 +63,7 @@ public class TankShooting : MonoBehaviourPun
     public AudioSource m_ShootingAudio;        
     public AudioClip m_ChargingClip;            
     public AudioClip m_FireClip;                
-    public float m_MinLaunchForce = 15f;        
+    public float m_MinLaunchForce = 5f;        
     public float m_MaxLaunchForce = 30f;        
     public float m_MaxChargeTime = 0.75f;     
     public GameObject m_MinePrefab;
@@ -81,6 +81,15 @@ public class TankShooting : MonoBehaviourPun
     private Transform playerTarget;
     private float botFireTimer = 0f;
     public float botFireInterval = 2.5f; 
+    private float botSkillTimer = 0f;
+    public float botSkillInterval = 6f;
+    public float botAttackRange = 60f;
+    public float botTargetRefreshInterval = 1f;
+    public float botDesiredFlightTime = 2f;
+    public float botMinimumLaunchForce = 5f;
+    public float botMaximumLaunchForce = 30f;
+    public bool botProjectileUsesGravity = false;
+    private float botTargetRefreshTimer;
 
     private bool CanControl()
     {
@@ -98,6 +107,8 @@ public class TankShooting : MonoBehaviourPun
     {
         m_CurrentLaunchForce = m_MinLaunchForce;
         m_AimSlider.value = m_MinLaunchForce;
+        botSkillTimer = 0f;
+        botTargetRefreshTimer = 0f;
     }
 
     private void Start ()
@@ -248,17 +259,65 @@ public class TankShooting : MonoBehaviourPun
 
     private void BotUpdate()
     {
-        if (playerTarget == null) { FindPlayerTarget(); return; }
-        if (Vector3.Distance(transform.position, playerTarget.position) < 25f)
+        botTargetRefreshTimer -= Time.deltaTime;
+        if (playerTarget == null || botTargetRefreshTimer <= 0f)
+        {
+            FindPlayerTarget();
+            botTargetRefreshTimer = botTargetRefreshInterval;
+        }
+
+        if (playerTarget == null)
+            return;
+
+        if (Vector3.Distance(transform.position, playerTarget.position) < botAttackRange)
         {
             botFireTimer += Time.deltaTime;
+            botSkillTimer += Time.deltaTime;
             if (botFireTimer >= botFireInterval)
             {
                 botFireTimer = 0f;
-                m_CurrentLaunchForce = Random.Range(m_MinLaunchForce, m_MaxLaunchForce);
+                m_CurrentLaunchForce = CalculateBotLaunchForce();
                 Fire();
             }
-        } else { botFireTimer = 0f; }
+
+            if (botSkillTimer >= botSkillInterval)
+            {
+                botSkillTimer = 0f;
+                UseBotSkill();
+            }
+        }
+        else
+        {
+            botFireTimer = 0f;
+            botSkillTimer = 0f;
+        }
+    }
+
+    private void UseBotSkill()
+    {
+        if (m_HasShield)
+            ActivateShield();
+        else if (m_HasDeathSpin)
+            FireDeathSpin();
+        else if (m_HasElemental)
+            FireElementalShot();
+        else if (m_HasGiantShell)
+            FireGiantShell();
+    }
+
+    private float CalculateBotLaunchForce()
+    {
+        if (playerTarget == null)
+            return botMinimumLaunchForce;
+
+        Vector3 targetPosition = playerTarget.position + Vector3.up;
+        Collider targetCollider = playerTarget.GetComponentInChildren<Collider>();
+        if (targetCollider != null)
+            targetPosition = targetCollider.bounds.center;
+
+        float distance = Vector3.Distance(m_FireTransform.position, targetPosition);
+        float flightTime = Mathf.Max(0.1f, botDesiredFlightTime);
+        return Mathf.Clamp(distance / flightTime, botMinimumLaunchForce, botMaximumLaunchForce);
     }
 
     private void Fire ()
@@ -266,7 +325,7 @@ public class TankShooting : MonoBehaviourPun
         m_Fired = true;
         isCharging = false;
         Rigidbody shellInstance = Instantiate (m_Shell, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody;
-        shellInstance.velocity = m_CurrentLaunchForce * m_FireTransform.forward; 
+        shellInstance.velocity = m_CurrentLaunchForce * m_FireTransform.forward;
         if (m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play (); }
         m_CurrentLaunchForce = m_MinLaunchForce;
     }

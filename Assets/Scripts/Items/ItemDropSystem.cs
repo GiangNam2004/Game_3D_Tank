@@ -26,10 +26,8 @@ public static class ItemDropSystem
         ItemScaleUtility.MatchTankSize(pickup);
         ItemPickup item = pickup.GetComponent<ItemPickup>();
         if (item == null)
-        {
             item = pickup.AddComponent<ItemPickup>();
-            item.type = GetPickupType(prefabName);
-        }
+        item.type = GetPickupType(prefabName);
     }
 
     private static PickupType GetPickupType(string prefabName)

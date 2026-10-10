@@ -22,6 +22,19 @@ public static class ItemScaleUtility
         item.transform.localScale *= tankSize / itemSize * sizeMultiplier;
     }
 
+    public static void AlignBottomToHeight(GameObject item, float groundHeight)
+    {
+        Renderer[] renderers = item.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+            return;
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        item.transform.position += Vector3.up * (groundHeight - bounds.min.y);
+    }
+
     private static float GetLargestRendererSize(GameObject target)
     {
         Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
