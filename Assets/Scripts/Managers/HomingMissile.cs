@@ -8,6 +8,7 @@ public class HomingMissile : MonoBehaviour
 
     private Transform m_Target;
     private Rigidbody m_Rigidbody;
+    private bool m_Reflected;
 
     private void Start()
     {
@@ -64,6 +65,12 @@ public class HomingMissile : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (m_Reflected)
+        {
+            m_Rigidbody.velocity = transform.forward * m_Speed;
+            return;
+        }
+
         if (m_Target != null && m_Target.gameObject.activeSelf)
         {
             Vector3 targetPos = m_Target.position;
@@ -80,5 +87,26 @@ public class HomingMissile : MonoBehaviour
             if (m_Rigidbody != null)
                 m_Rigidbody.velocity = transform.forward * m_Speed;
         }
+    }
+
+    public void ReflectFrom(Transform reflectingTank)
+    {
+        m_Reflected = true;
+        TankMovement tankMovement = reflectingTank.GetComponent<TankMovement>();
+        if (tankMovement != null)
+            m_ShooterPlayerNumber = tankMovement.m_PlayerNumber;
+
+        if (m_Rigidbody != null && m_Rigidbody.velocity.sqrMagnitude > 0.01f)
+            m_Rigidbody.velocity = -m_Rigidbody.velocity;
+
+        transform.forward = -transform.forward;
+        m_Target = null;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        ReflectShield shield = other.GetComponentInParent<ReflectShield>();
+        if (shield != null)
+            shield.ReflectProjectile(GetComponent<Collider>());
     }
 }

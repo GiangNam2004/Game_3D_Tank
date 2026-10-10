@@ -59,6 +59,55 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
         }
     }
 
+    public bool CanApplyPickup(PickupType type)
+    {
+        if (type == PickupType.ToolChest)
+            return m_CurrentHealth < m_StartingHealth;
+
+        if (type == PickupType.ReflectShield)
+            return GetComponentInChildren<ReflectShield>(true) == null;
+
+        return true;
+    }
+
+    public bool ApplyPickup(PickupType type, float healAmount, float speedMultiplier, float speedDuration)
+    {
+        switch (type)
+        {
+            case PickupType.ToolChest:
+                m_CurrentHealth = Mathf.Min(m_StartingHealth, m_CurrentHealth + healAmount);
+                SetHealthUI();
+                return true;
+            case PickupType.FuelTank:
+                TankMovement movement = GetComponent<TankMovement>();
+                if (movement != null)
+                    movement.ApplySpeedBoost(speedMultiplier, speedDuration);
+                return true;
+            case PickupType.ReflectShield:
+                return ActivateReflectShield();
+        }
+
+        return false;
+    }
+
+    private bool ActivateReflectShield()
+    {
+        GameObject shieldPrefab = Resources.Load<GameObject>("ReflectShield_Prefab");
+        if (shieldPrefab == null)
+        {
+            Debug.LogError("Could not load ReflectShield_Prefab from Resources.");
+            return false;
+        }
+
+        GameObject shieldObject = Instantiate(shieldPrefab, transform);
+        shieldObject.transform.localPosition = Vector3.zero;
+        ReflectShield shield = shieldObject.GetComponent<ReflectShield>();
+        if (shield == null)
+            shield = shieldObject.AddComponent<ReflectShield>();
+        shield.AttachToTank(transform);
+        return true;
+    }
+
     private void SetHealthUI()
     {
         m_Slider.value = m_CurrentHealth;

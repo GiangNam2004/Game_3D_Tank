@@ -7,15 +7,18 @@ public class TankMovement : MonoBehaviour
     public float m_Speed = 12f;            
     public float m_TurnSpeed = 180f;       
     public Joystick joystick;
+    public float m_SpeedMultiplier = 1f;
 
     private Rigidbody m_Rigidbody;         
     private Vector3 m_Movement;
     private NavMeshAgent agent;
+    private float baseAgentSpeed;
     private Transform playerTarget;
     
     private enum AIState { Patrol, Chase, Flee }
     private AIState currentState;
     private float stateTimer;
+    private float speedBoostUntil;
     
     public float sightRange = 25f;
     private TankHealth tankHealth; 
@@ -24,6 +27,8 @@ public class TankMovement : MonoBehaviour
     {
         m_Rigidbody = GetComponent<Rigidbody>();
         agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+            baseAgentSpeed = agent.speed;
         tankHealth = GetComponent<TankHealth>(); 
     }
 
@@ -77,6 +82,13 @@ public class TankMovement : MonoBehaviour
 
     private void Update()
     {
+        if (m_SpeedMultiplier != 1f && Time.time >= speedBoostUntil)
+        {
+            m_SpeedMultiplier = 1f;
+            if (agent != null)
+                agent.speed = baseAgentSpeed;
+        }
+
         if (m_PlayerNumber == 1)
         {
             float h = 0f;
@@ -138,9 +150,17 @@ public class TankMovement : MonoBehaviour
 
     private void Move(Vector3 moveDirection)
     {
-        Vector3 targetVelocity = moveDirection.normalized * m_Speed;
+        Vector3 targetVelocity = moveDirection.normalized * m_Speed * m_SpeedMultiplier;
         targetVelocity.y = m_Rigidbody.velocity.y; 
         m_Rigidbody.velocity = targetVelocity;
+    }
+
+    public void ApplySpeedBoost(float multiplier, float duration)
+    {
+        m_SpeedMultiplier = Mathf.Max(1f, multiplier);
+        speedBoostUntil = Mathf.Max(speedBoostUntil, Time.time + Mathf.Max(0f, duration));
+        if (agent != null)
+            agent.speed = baseAgentSpeed * m_SpeedMultiplier;
     }
 
     private void Turn()

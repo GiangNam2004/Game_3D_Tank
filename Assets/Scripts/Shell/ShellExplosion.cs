@@ -20,6 +20,21 @@ public class ShellExplosion : MonoBehaviour
 
     private void OnTriggerEnter (Collider other)
     {
+        ReflectShield shield = other.GetComponentInParent<ReflectShield>();
+        if (shield != null)
+        {
+            shield.ReflectProjectile(GetComponent<Collider>());
+            return;
+        }
+
+        Collider[] allColliders = Physics.OverlapSphere(transform.position, m_ExplosionRadius);
+        for (int i = 0; i < allColliders.Length; i++)
+        {
+            MedicalHealth medical = allColliders[i].GetComponentInParent<MedicalHealth>();
+            if (medical != null)
+                medical.TakeDamage(CalculateDamage(medical.transform.position));
+        }
+
         // Collect all the colliders in a sphere from the shell's current position to a radius of the explosion radius.
         Collider[] colliders = Physics.OverlapSphere (transform.position, m_ExplosionRadius, m_TankMask);
 
