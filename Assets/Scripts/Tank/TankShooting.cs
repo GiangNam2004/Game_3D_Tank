@@ -12,6 +12,12 @@ public class TankShooting : MonoBehaviourPun
     public Sprite iconSkill2;
     public Sprite iconSkill3;
 
+    [Header("--- HIỆU ỨNG CHUNG CHO MỌI KỸ NĂNG ---")]
+    public GameObject m_MuzzleFlashVFX; // Chớp lửa nòng súng (Bắn đạn chùm, đạn to, đạn nguyên tố, tên lửa)
+    public GameObject m_SpawnVFX;       // Khói bụi bốc lên khi gọi Mìn, Ụ súng, Bom khói
+    public GameObject m_TeleportVFX;    // Khói "Bùm" khi xài Phân thân (Clone) biến mất và xuất hiện
+    public GameObject m_DeathSpinVFX;   // Vòng xoáy lốc xoáy quanh xe khi xả đạn 8 hướng
+
     [Header("--- KỸ NĂNG NÚT 1 (Tấn Công) ---")]
     public bool m_HasSpreadShot = true;    
     public bool m_HasGiantShell = false;   
@@ -30,7 +36,8 @@ public class TankShooting : MonoBehaviourPun
     public GameObject m_SmokePrefab;
     // --- SKILL 2: TANK 3 ---
     public bool m_HasMagneticPull = false; // Hút quái và nổ
-    public GameObject m_MagneticExplosion; // Kéo Prefab vụ nổ vào đây
+    public GameObject m_MagneticExplosion; 
+    public GameObject m_MagneticPullVFX;
 
     [Header("--- KỸ NĂNG NÚT 3 (Phòng Thủ/Cơ Động) ---")]
     public bool m_HasHomingMissile = true; 
@@ -51,6 +58,8 @@ public class TankShooting : MonoBehaviourPun
     public Image imgCooldownDanChum;
     public Image imgCooldownThaMin;
     public Image imgCooldownTenLua;
+    public GameObject m_DashVFX;       // Hiệu ứng khói/lửa xịt ra đằng sau khi lướt
+    public GameObject m_DashImpactVFX; // Hiệu ứng nổ xuyệt lửa khi ủi trúng địch
 
     public Rigidbody m_HomingShellPrefab;
     public float m_HomingCooldown = 10f; 
@@ -117,7 +126,6 @@ public class TankShooting : MonoBehaviourPun
 
         if (CanControl())
         {
-            // Kết nối nút Bắn thường
             GameObject fireButton = GameObject.Find("FireButton");
             if (fireButton != null)
             {
@@ -147,7 +155,7 @@ public class TankShooting : MonoBehaviourPun
                     btnDanChum.GetComponent<Button>().onClick.AddListener(FireGiantShell);
                 } else if (m_HasElemental) {
                     btnDanChum.GetComponent<Button>().onClick.AddListener(FireElementalShot);
-                } else if (m_HasDeathSpin) { // <--- THÊM SKILL 1 TANK 3
+                } else if (m_HasDeathSpin) { 
                     btnDanChum.GetComponent<Button>().onClick.AddListener(FireDeathSpin);
                 } else {
                     btnDanChum.SetActive(false);
@@ -168,7 +176,7 @@ public class TankShooting : MonoBehaviourPun
                     btnThaMin.GetComponent<Button>().onClick.AddListener(PlaceTurret);
                 } else if (m_HasSmoke) {
                     btnThaMin.GetComponent<Button>().onClick.AddListener(DropSmoke);
-                } else if (m_HasMagneticPull) { // <--- THÊM SKILL 2 TANK 3
+                } else if (m_HasMagneticPull) { 
                     btnThaMin.GetComponent<Button>().onClick.AddListener(ActivateMagneticPull);
                 } else {
                     btnThaMin.SetActive(false); 
@@ -324,6 +332,10 @@ public class TankShooting : MonoBehaviourPun
     {
         m_Fired = true;
         isCharging = false;
+        
+        // HIỆU ỨNG CHỚP LỬA KHI BẮN THƯỜNG
+        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation);
+
         Rigidbody shellInstance = Instantiate (m_Shell, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody;
         shellInstance.velocity = m_CurrentLaunchForce * m_FireTransform.forward;
         if (m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play (); }
@@ -331,23 +343,128 @@ public class TankShooting : MonoBehaviourPun
     }
 
     // ============================================
-    // CÁC KỸ NĂNG CŨ (TANK MẶC ĐỊNH, TANK 1, TANK 2)
+    // CÁC KỸ NĂNG CŨ CẬP NHẬT THÊM HIỆU ỨNG
     // ============================================
-    public void FireSpreadShot() { /* Mã cũ... */ if (Time.time < m_NextSkillTime) return; float angle = 20f; Vector3 spawnPos = m_FireTransform.position; Vector3 offset = m_FireTransform.right * 1f; Quaternion centerRot = m_FireTransform.rotation; Quaternion leftRot = m_FireTransform.rotation * Quaternion.Euler(0, -angle, 0); Quaternion rightRot = m_FireTransform.rotation * Quaternion.Euler(0, angle, 0); Rigidbody shellCenter = Instantiate(m_Shell, spawnPos, centerRot) as Rigidbody; Rigidbody shellLeft = Instantiate(m_Shell, spawnPos - offset, leftRot) as Rigidbody; Rigidbody shellRight = Instantiate(m_Shell, spawnPos + offset, rightRot) as Rigidbody; float skillForce = m_MaxLaunchForce; shellCenter.velocity = skillForce * (centerRot * Vector3.forward); shellLeft.velocity = skillForce * (leftRot * Vector3.forward); shellRight.velocity = skillForce * (rightRot * Vector3.forward); if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } m_NextSkillTime = Time.time + m_SkillCooldown; }
-    public void DropMine() { /* Mã cũ... */ if (Time.time < m_NextMineTime) return; Vector3 dropPos = transform.position - transform.forward * 2.5f; dropPos.y += 0.5f; if (m_MinePrefab != null) Instantiate(m_MinePrefab, dropPos, transform.rotation); m_NextMineTime = Time.time + m_MineCooldown; }
-    public void FireHomingMissile() { /* Mã cũ... */ if (Time.time < m_NextHomingTime) return; Rigidbody shellInstance = Instantiate(m_HomingShellPrefab, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody; HomingMissile homingScript = shellInstance.GetComponent<HomingMissile>(); if (homingScript != null) homingScript.m_ShooterPlayerNumber = m_PlayerNumber; if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } m_NextHomingTime = Time.time + m_HomingCooldown; }
-    public void FireGiantShell() { /* Mã cũ... */ if (Time.time < m_NextSkillTime) return; Rigidbody shellInstance = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody; shellInstance.transform.localScale = new Vector3(3f, 3f, 3f); shellInstance.mass = 5f; shellInstance.velocity = m_MaxLaunchForce * m_FireTransform.forward; if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } m_NextSkillTime = Time.time + m_SkillCooldown; }
-    public void PlaceTurret() { /* Mã cũ... */ if (Time.time < m_NextMineTime) return; Vector3 dropPos = transform.position + transform.right * 2f; if (m_TurretPrefab != null) { Instantiate(m_TurretPrefab, dropPos, transform.rotation); } m_NextMineTime = Time.time + m_MineCooldown; }
-    public void CreateClone() { /* Mã cũ... */ if (Time.time < m_NextHomingTime) return; if (m_ClonePrefab != null) { GameObject clone = Instantiate(m_ClonePrefab, transform.position, transform.rotation); Destroy(clone, 7f); } float dashDistance = 12f; Vector3 dashTarget = transform.position + transform.forward * dashDistance; RaycastHit hit; if (Physics.Raycast(transform.position, transform.forward, out hit, dashDistance)) { dashTarget = hit.point - transform.forward * 1.5f; } transform.position = dashTarget; m_NextHomingTime = Time.time + m_HomingCooldown; }
-    public void DropSmoke() { /* Mã cũ... */ if (Time.time < m_NextMineTime) return; Vector3 dropPos = transform.position - transform.forward * 2f; if (m_SmokePrefab != null) Instantiate(m_SmokePrefab, dropPos, transform.rotation); m_NextMineTime = Time.time + m_MineCooldown; }
-    public void FireElementalShot() { /* Mã cũ... */ if (Time.time < m_NextSkillTime) return; Rigidbody shellPrefab = m_IsNextIce ? m_IceShellPrefab : m_ToxicShellPrefab; if (shellPrefab != null) { Rigidbody shell = Instantiate(shellPrefab, m_FireTransform.position, m_FireTransform.rotation); shell.velocity = m_CurrentLaunchForce * m_FireTransform.forward; } m_IsNextIce = !m_IsNextIce; if (m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } m_NextSkillTime = Time.time + m_SkillCooldown; }
-    public void ActivateShield() { /* Mã cũ... */ if (Time.time < m_NextHomingTime) return; if (m_ShieldPrefab != null) { Instantiate(m_ShieldPrefab, transform.position, transform.rotation, transform); } m_NextHomingTime = Time.time + m_HomingCooldown; }
+    public void FireSpreadShot() { 
+        if (Time.time < m_NextSkillTime) return; 
+        
+        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation); // Nổ chớp lửa
+
+        float angle = 20f; Vector3 spawnPos = m_FireTransform.position; Vector3 offset = m_FireTransform.right * 1f; 
+        Quaternion centerRot = m_FireTransform.rotation; 
+        Quaternion leftRot = m_FireTransform.rotation * Quaternion.Euler(0, -angle, 0); 
+        Quaternion rightRot = m_FireTransform.rotation * Quaternion.Euler(0, angle, 0); 
+        
+        Rigidbody shellCenter = Instantiate(m_Shell, spawnPos, centerRot) as Rigidbody; 
+        Rigidbody shellLeft = Instantiate(m_Shell, spawnPos - offset, leftRot) as Rigidbody; 
+        Rigidbody shellRight = Instantiate(m_Shell, spawnPos + offset, rightRot) as Rigidbody; 
+        
+        float skillForce = m_MaxLaunchForce; 
+        shellCenter.velocity = skillForce * (centerRot * Vector3.forward); 
+        shellLeft.velocity = skillForce * (leftRot * Vector3.forward); 
+        shellRight.velocity = skillForce * (rightRot * Vector3.forward); 
+        if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
+        m_NextSkillTime = Time.time + m_SkillCooldown; 
+    }
+
+    public void DropMine() { 
+        if (Time.time < m_NextMineTime) return; 
+        Vector3 dropPos = transform.position - transform.forward * 2.5f; dropPos.y += 0.5f; 
+        
+        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, dropPos, Quaternion.identity); // Bụi bốc lên khi đẻ mìn
+
+        if (m_MinePrefab != null) Instantiate(m_MinePrefab, dropPos, transform.rotation); 
+        m_NextMineTime = Time.time + m_MineCooldown; 
+    }
+
+    public void FireHomingMissile() { 
+        if (Time.time < m_NextHomingTime) return; 
+        
+        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation); // Nổ chớp lửa
+
+        Rigidbody shellInstance = Instantiate(m_HomingShellPrefab, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody; 
+        HomingMissile homingScript = shellInstance.GetComponent<HomingMissile>(); 
+        if (homingScript != null) homingScript.m_ShooterPlayerNumber = m_PlayerNumber; 
+        if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
+        m_NextHomingTime = Time.time + m_HomingCooldown; 
+    }
+
+    public void FireGiantShell() { 
+        if (Time.time < m_NextSkillTime) return; 
+        
+        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation); // Nổ chớp lửa
+
+        Rigidbody shellInstance = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation) as Rigidbody; 
+        shellInstance.transform.localScale = new Vector3(3f, 3f, 3f); 
+        shellInstance.mass = 5f; 
+        shellInstance.velocity = m_MaxLaunchForce * m_FireTransform.forward; 
+        if(m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
+        m_NextSkillTime = Time.time + m_SkillCooldown; 
+    }
+
+    public void PlaceTurret() { 
+        if (Time.time < m_NextMineTime) return; 
+        Vector3 dropPos = transform.position + transform.right * 2f; 
+        
+        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, dropPos, Quaternion.identity); // Bụi bốc lên khi gọi Ụ súng
+
+        if (m_TurretPrefab != null) { Instantiate(m_TurretPrefab, dropPos, transform.rotation); } 
+        m_NextMineTime = Time.time + m_MineCooldown; 
+    }
+
+    public void CreateClone() { 
+        if (Time.time < m_NextHomingTime) return; 
+        
+        if (m_TeleportVFX != null) Instantiate(m_TeleportVFX, transform.position, Quaternion.identity); // Bùm khói vị trí cũ
+
+        if (m_ClonePrefab != null) { GameObject clone = Instantiate(m_ClonePrefab, transform.position, transform.rotation); Destroy(clone, 7f); } 
+        float dashDistance = 12f; Vector3 dashTarget = transform.position + transform.forward * dashDistance; RaycastHit hit; 
+        if (Physics.Raycast(transform.position, transform.forward, out hit, dashDistance)) { dashTarget = hit.point - transform.forward * 1.5f; } 
+        
+        transform.position = dashTarget; 
+        if (m_TeleportVFX != null) Instantiate(m_TeleportVFX, transform.position, Quaternion.identity); // Bùm khói vị trí mới
+
+        m_NextHomingTime = Time.time + m_HomingCooldown; 
+    }
+
+    public void DropSmoke() { 
+        if (Time.time < m_NextMineTime) return; 
+        Vector3 dropPos = transform.position - transform.forward * 2f; 
+        
+        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, dropPos, Quaternion.identity); // Bụi bốc lên
+
+        if (m_SmokePrefab != null) Instantiate(m_SmokePrefab, dropPos, transform.rotation); 
+        m_NextMineTime = Time.time + m_MineCooldown; 
+    }
+
+    public void FireElementalShot() { 
+        if (Time.time < m_NextSkillTime) return; 
+        
+        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation); // Nổ chớp lửa
+
+        Rigidbody shellPrefab = m_IsNextIce ? m_IceShellPrefab : m_ToxicShellPrefab; 
+        if (shellPrefab != null) { 
+            Rigidbody shell = Instantiate(shellPrefab, m_FireTransform.position, m_FireTransform.rotation); 
+            shell.velocity = m_CurrentLaunchForce * m_FireTransform.forward; 
+        } 
+        m_IsNextIce = !m_IsNextIce; 
+        if (m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
+        m_NextSkillTime = Time.time + m_SkillCooldown; 
+    }
+
+    public void ActivateShield() { 
+        if (Time.time < m_NextHomingTime) return; 
+        
+        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, transform.position, Quaternion.identity); // Hiệu ứng lóe sáng khi bật khiên
+
+        if (m_ShieldPrefab != null) { Instantiate(m_ShieldPrefab, transform.position, transform.rotation, transform); } 
+        m_NextHomingTime = Time.time + m_HomingCooldown; 
+    }
 
     // ============================================
-    // KỸ NĂNG MỚI (DÀNH CHO TANK 3 - 3 NÚT)
+    // KỸ NĂNG MỚI (DÀNH CHO TANK 3)
     // ============================================
     
-    // NÚT 1: Cối Xay Tử Thần (Bắn đạn ra 8 hướng)
     public void FireDeathSpin()
     {
         if (Time.time < m_NextSkillTime) return;
@@ -357,38 +474,41 @@ public class TankShooting : MonoBehaviourPun
 
     private IEnumerator DeathSpinRoutine()
     {
-        float spinDuration = 2f;    // Kéo dài 2 giây
-        float fireRate = 0.2f;      // Cứ 0.2s xả đạn 1 lần
+        float spinDuration = 2f;    
+        float fireRate = 0.2f;      
         float timer = 0f;
         float spinOffset = 0f;
 
+        // BẬT HIỆU ỨNG AURA LỐC XOÁY QUANH XE
+        GameObject activeSpinVFX = null;
+        if (m_DeathSpinVFX != null) activeSpinVFX = Instantiate(m_DeathSpinVFX, transform.position, Quaternion.identity, transform);
+
         while(timer < spinDuration)
         {
-            for (int i = 0; i < 8; i++) // Bắn ra 8 viên đạn
+            for (int i = 0; i < 8; i++) 
             {
                 float angle = (360f / 8) * i + spinOffset;
                 Quaternion rotation = Quaternion.Euler(0, angle, 0);
                 Vector3 fireDir = rotation * Vector3.forward;
                 
-                // Nâng tâm bắn lên cao một chút và cách xe ra để khỏi tự dính đạn
                 Vector3 spawnPos = transform.position + Vector3.up * 1.5f + fireDir * 2f;
                 
+                if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, spawnPos, rotation); // Chớp lửa từng nòng
+
                 Rigidbody shell = Instantiate(m_Shell, spawnPos, rotation);
                 shell.velocity = m_MaxLaunchForce * fireDir;
             }
-            spinOffset += 15f; // Đợt sau xoay nòng đi 1 chút để tạo lốc xoáy
+            spinOffset += 15f; 
             if (m_ShootingAudio != null) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); }
             
             timer += fireRate;
             yield return new WaitForSeconds(fireRate);
         }
+
+        // TẮT HIỆU ỨNG LỐC XOÁY KHI XẢ ĐẠN XONG
+        if (activeSpinVFX != null) Destroy(activeSpinVFX);
     }
 
-   // ============================================
-    // KỸ NĂNG MỚI (DÀNH CHO TANK 3)
-    // ============================================
-
-    // --- NÚT 2: HÚT TỪ TRƯỜNG & NỔ ---
     public void ActivateMagneticPull()
     {
         if (Time.time < m_NextMineTime) return;
@@ -396,15 +516,20 @@ public class TankShooting : MonoBehaviourPun
         m_NextMineTime = Time.time + m_MineCooldown;
     }
 
-  // --- NÚT 2: HÚT TỪ TRƯỜNG & NỔ ---
-    private System.Collections.IEnumerator MagneticPullRoutine()
+   private System.Collections.IEnumerator MagneticPullRoutine()
     {
-        Debug.Log("==> ĐANG HÚT QUÁI!"); 
         float pullDuration = 1.5f;   
         float pullRadius = 15f;      
         float pullSpeed = 15f; 
-        float safeDistance = 3.5f; // Khoảng cách an toàn để 2 xe không bị xuyên vào nhau
+        float safeDistance = 3.5f; 
         float timer = 0f;
+
+        GameObject activePullVFX = null;
+        if (m_MagneticPullVFX != null)
+        {
+            activePullVFX = Instantiate(m_MagneticPullVFX, transform.position + Vector3.up * 0.2f, Quaternion.Euler(-90f, 0f, 0f));
+            activePullVFX.transform.SetParent(transform, true);
+        }
 
         while (timer < pullDuration)
         {
@@ -421,7 +546,6 @@ public class TankShooting : MonoBehaviourPun
                         Vector3 targetPos = transform.position;
                         targetPos.y = enemyRb.position.y; 
                         
-                        // CHỈ HÚT KHI XE ĐỊCH CÒN CÁCH MÌNH XA HƠN 3.5 MÉT
                         if (Vector3.Distance(enemyRb.position, targetPos) > safeDistance)
                         {
                             enemyRb.position = Vector3.MoveTowards(enemyRb.position, targetPos, pullSpeed * Time.deltaTime);
@@ -433,7 +557,8 @@ public class TankShooting : MonoBehaviourPun
             yield return null;
         }
 
-        Debug.Log("==> BÙM!");
+        if (activePullVFX != null) Destroy(activePullVFX);
+
         if (m_MagneticExplosion != null)
         {
             Instantiate(m_MagneticExplosion, transform.position, Quaternion.identity);
@@ -454,7 +579,6 @@ public class TankShooting : MonoBehaviourPun
         }
     }
 
-    // --- NÚT 3: HÚC (DASH) ---
     public void ActivateDash()
     {
         if (Time.time < m_NextHomingTime || isDashing) return;
@@ -462,14 +586,18 @@ public class TankShooting : MonoBehaviourPun
         m_NextHomingTime = Time.time + m_HomingCooldown;
     }
 
-    // --- NÚT 3: HÚC (DASH) ---
     private System.Collections.IEnumerator DashRoutine()
     {
-        Debug.Log("==> ĐANG HÚC!"); 
         isDashing = true;
         
         MonoBehaviour movementScript = GetComponent("TankMovement") as MonoBehaviour;
         if (movementScript != null) movementScript.enabled = false; 
+
+        GameObject activeDashVFX = null;
+        if (m_DashVFX != null)
+        {
+            activeDashVFX = Instantiate(m_DashVFX, transform.position, transform.rotation, transform);
+        }
 
         float timer = 0f;
         System.Collections.Generic.HashSet<GameObject> hitEnemies = new System.Collections.Generic.HashSet<GameObject>();
@@ -491,12 +619,16 @@ public class TankShooting : MonoBehaviourPun
                         if (!hitEnemies.Contains(enemyRb.gameObject))
                         {
                             hitEnemies.Add(enemyRb.gameObject); 
-                            Debug.Log("Đã ủi trúng: " + enemyRb.name);
                             
                             Vector3 knockbackDir = (enemyRb.position - transform.position).normalized;
                             knockbackDir.y = 0; 
                             enemyRb.position += knockbackDir * 4f; 
                             
+                            if (m_DashImpactVFX != null)
+                            {
+                                Instantiate(m_DashImpactVFX, enemyRb.position, Quaternion.identity);
+                            }
+
                             enemyRb.SendMessage("TakeDamage", m_DashDamage, SendMessageOptions.DontRequireReceiver);
                         }
                     }
@@ -506,6 +638,8 @@ public class TankShooting : MonoBehaviourPun
             yield return null;
         }
         
+        if (activeDashVFX != null) Destroy(activeDashVFX);
+
         isDashing = false; 
         if (movementScript != null) movementScript.enabled = true; 
     }
