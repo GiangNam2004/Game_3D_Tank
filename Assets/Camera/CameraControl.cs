@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class CameraControl : MonoBehaviour
 {
@@ -12,8 +13,19 @@ public class CameraControl : MonoBehaviour
     private void Awake()
     {
         m_Camera = GetComponentInChildren<Camera>();
-        if (GetComponent<MinimapController>() == null)
+        if (SceneManager.GetActiveScene().name == "Main 2")
+        {
+            MinimapController legacyMinimap = GetComponent<MinimapController>();
+            if (legacyMinimap != null)
+                Destroy(legacyMinimap);
+
+            if (GetComponent<Main2MinimapController>() == null)
+                gameObject.AddComponent<Main2MinimapController>();
+        }
+        else if (GetComponent<MinimapController>() == null)
+        {
             gameObject.AddComponent<MinimapController>();
+        }
     }
 
     private void FixedUpdate()
