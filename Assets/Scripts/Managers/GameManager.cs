@@ -16,7 +16,7 @@ public class GameManager : MonoBehaviour
     public float m_EnemyHealthIncreasePerLevel = 0.15f;
     public float m_BossHealthMultiplier = 2f;
     public float m_MinimumEnemySpawnDistance = 6f;
-    public int[] m_EnemiesPerWave = { 2, 4, 5 };
+    public int[] m_EnemiesPerWave = { 2, 4, 6 };
     public float m_StartDelay = 3f;
     public float m_EndDelay = 3f;
     public CameraControl m_CameraControl;

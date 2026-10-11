@@ -70,22 +70,24 @@ public class MainItemSpawner : MonoBehaviour
             }
 
             GameObject pickup = Instantiate(pickupPrefab, position, Quaternion.identity);
+            if (prefabName == "Medical3D" || prefabName == "ToolChest3D" || prefabName == "FuelTank3D")
+                pickup.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+
             if (prefabName == "Medical3D")
             {
                 ItemScaleUtility.MatchTankSize(pickup, 2f);
-                ItemScaleUtility.AlignBottomToHeight(pickup, position.y);
                 if (pickup.GetComponent<MedicalHealth>() == null)
                     pickup.AddComponent<MedicalHealth>();
             }
             else
             {
                 ItemScaleUtility.MatchTankSize(pickup);
-                ItemScaleUtility.AlignBottomToHeight(pickup, position.y);
                 ItemPickup item = pickup.GetComponent<ItemPickup>();
                 if (item == null)
                     item = pickup.AddComponent<ItemPickup>();
                 item.type = GetPickupType(prefabName);
             }
+            ItemScaleUtility.AlignBottomToHeight(pickup, position.y);
         }
 
         Debug.Log("Spawned " + pickupCount + " random pickup(s) in scene " + SceneManager.GetActiveScene().name);

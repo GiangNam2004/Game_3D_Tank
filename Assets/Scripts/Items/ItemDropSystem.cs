@@ -23,6 +23,8 @@ public static class ItemDropSystem
         }
 
         GameObject pickup = Object.Instantiate(prefab, position, Quaternion.identity);
+        if (prefabName == "ToolChest3D" || prefabName == "FuelTank3D")
+            pickup.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
         ItemScaleUtility.MatchTankSize(pickup);
         ItemScaleUtility.AlignBottomToHeight(pickup, groundHeight);
         ItemPickup item = pickup.GetComponent<ItemPickup>();
