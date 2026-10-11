@@ -124,5 +124,27 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
         m_ExplosionAudio.Play();
 
         gameObject.SetActive(false);
+
+        if (PhotonNetwork.InRoom && photonView.ViewID != 0)
+        {
+            TankHealth[] remainingTanks = FindObjectsOfType<TankHealth>();
+            for (int i = 0; i < remainingTanks.Length; i++)
+            {
+                PhotonView remainingView = remainingTanks[i].GetComponent<PhotonView>();
+                if (remainingView != null && remainingView.ViewID != 0 && remainingView.IsMine)
+                {
+                    photonView.RPC("ReportMatchWinner", RpcTarget.All, remainingView.OwnerActorNr);
+                    break;
+                }
+            }
+        }
+    }
+
+    [PunRPC]
+    private void ReportMatchWinner(int winnerActorNumber)
+    {
+        GameManagerOnline gameManager = FindObjectOfType<GameManagerOnline>();
+        if (gameManager != null)
+            gameManager.ShowMatchWinner(winnerActorNumber);
     }
 }

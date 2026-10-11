@@ -95,7 +95,7 @@ public class TankShooting : MonoBehaviourPun
     public float botAttackRange = 60f;
     public float botTargetRefreshInterval = 1f;
     public float botDesiredFlightTime = 2f;
-    public float botMinimumLaunchForce = 5f;
+    public float botMinimumLaunchForce = 15f;
     public float botMaximumLaunchForce = 30f;
     public bool botProjectileUsesGravity = false;
     private float botTargetRefreshTimer;
@@ -315,8 +315,9 @@ public class TankShooting : MonoBehaviourPun
 
     private float CalculateBotLaunchForce()
     {
+        float minimumLaunchForce = Mathf.Max(botMinimumLaunchForce, 15f);
         if (playerTarget == null)
-            return botMinimumLaunchForce;
+            return minimumLaunchForce;
 
         Vector3 targetPosition = playerTarget.position + Vector3.up;
         Collider targetCollider = playerTarget.GetComponentInChildren<Collider>();
@@ -325,7 +326,7 @@ public class TankShooting : MonoBehaviourPun
 
         float distance = Vector3.Distance(m_FireTransform.position, targetPosition);
         float flightTime = Mathf.Max(0.1f, botDesiredFlightTime);
-        return Mathf.Clamp(distance / flightTime, botMinimumLaunchForce, botMaximumLaunchForce);
+        return Mathf.Clamp(distance / flightTime, minimumLaunchForce, botMaximumLaunchForce);
     }
 
     private void Fire ()

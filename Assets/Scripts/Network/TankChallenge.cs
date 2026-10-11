@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Photon.Pun;
 using UnityEngine.SceneManagement;
 
@@ -7,6 +7,9 @@ public class TankChallenge : MonoBehaviourPun
     // Hàm này tự động kích hoạt khi xe tăng của bạn húc vào một vật khác
     private void OnCollisionEnter(Collision collision)
     {
+        if (SceneManager.GetActiveScene().name != "Lobby")
+            return;
+
         // 1. Kiểm tra xem xe này có phải CỦA MÌNH đang lái không
         // 2. Kiểm tra xem vật mình vừa húc trúng có thẻ (Tag) là "Player" không
         if (photonView.IsMine && collision.gameObject.CompareTag("Player"))
@@ -29,6 +32,9 @@ public class TankChallenge : MonoBehaviourPun
     [PunRPC]
     public void NhanLoiMoi()
     {
+        if (SceneManager.GetActiveScene().name != "Lobby")
+            return;
+
         Debug.Log("Máy tôi vừa nhận được tin nhắn khiêu chiến! Đang kéo cả 2 sang Main 2...");
         
         // Vì tính năng AutomaticallySyncScene đã bật, khi 1 người gọi lệnh này, 

@@ -35,7 +35,10 @@ public class MedicalHealth : MonoBehaviour
             return;
 
         destroyed = true;
-        ItemDropSystem.TryDrop(transform.position, dropChance);
+        float groundHeight = ItemScaleUtility.GetBottomHeight(gameObject);
+        if (float.IsNaN(groundHeight))
+            groundHeight = transform.position.y;
+        ItemDropSystem.TryDrop(transform.position, dropChance, groundHeight);
         Destroy(gameObject);
     }
 }

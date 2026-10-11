@@ -10,9 +10,13 @@ public class MainItemSpawner : MonoBehaviour
     public float groundHeight = 0.5f;
     public float spawnInterval = 7f;
     public bool spawnOnNavMesh = true;
+    public float navMeshSampleDistance = 2f;
     public float obstacleCheckRadius = 1.2f;
     public int maxSpawnPositionAttempts = 20;
     public LayerMask blockingLayers = ~0;
+
+    private Bounds mapBounds;
+    private bool hasMapBounds;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void RegisterSceneCallback()
@@ -31,11 +35,12 @@ public class MainItemSpawner : MonoBehaviour
 
     private static bool IsGameplayScene(string sceneName)
     {
-        return sceneName == "Main" || sceneName == "Main 1";
+        return sceneName == "Main" || sceneName == "Main 1" || sceneName == "Main 2";
     }
 
     private void Start()
     {
+        hasMapBounds = TryGetMapBounds(out mapBounds);
         SpawnPickups(initialPickups);
         InvokeRepeating("SpawnPickups", spawnInterval, spawnInterval);
     }
@@ -126,49 +131,29 @@ public class MainItemSpawner : MonoBehaviour
 
     private Vector3 GetSpawnPosition()
     {
+        if (hasMapBounds)
+        {
+            return new Vector3(
+                Random.Range(mapBounds.min.x, mapBounds.max.x),
+                mapBounds.max.y,
+                Random.Range(mapBounds.min.z, mapBounds.max.z));
+        }
+
         if (spawnOnNavMesh)
         {
-            NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
-            if (triangulation.vertices.Length > 0 && triangulation.indices.Length >= 3)
+            Vector3 candidate = new Vector3(
+                Random.Range(-spawnArea.x * 0.5f, spawnArea.x * 0.5f),
+                groundHeight,
+                Random.Range(-spawnArea.y * 0.5f, spawnArea.y * 0.5f));
+
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(
+                candidate,
+                out hit,
+                navMeshSampleDistance,
+                NavMesh.AllAreas))
             {
-                int triangleCount = triangulation.indices.Length / 3;
-                float totalArea = 0f;
-                for (int i = 0; i < triangleCount; i++)
-                {
-                    Vector3 first = triangulation.vertices[triangulation.indices[i * 3]];
-                    Vector3 second = triangulation.vertices[triangulation.indices[i * 3 + 1]];
-                    Vector3 third = triangulation.vertices[triangulation.indices[i * 3 + 2]];
-                    totalArea += Vector3.Cross(second - first, third - first).magnitude * 0.5f;
-                }
-
-                float selectedArea = Random.Range(0f, totalArea);
-                int triangleIndex = 0;
-                for (int i = 0; i < triangleCount; i++)
-                {
-                    Vector3 first = triangulation.vertices[triangulation.indices[i * 3]];
-                    Vector3 second = triangulation.vertices[triangulation.indices[i * 3 + 1]];
-                    Vector3 third = triangulation.vertices[triangulation.indices[i * 3 + 2]];
-                    selectedArea -= Vector3.Cross(second - first, third - first).magnitude * 0.5f;
-                    if (selectedArea <= 0f)
-                    {
-                        triangleIndex = i * 3;
-                        break;
-                    }
-                }
-
-                Vector3 a = triangulation.vertices[triangulation.indices[triangleIndex]];
-                Vector3 b = triangulation.vertices[triangulation.indices[triangleIndex + 1]];
-                Vector3 c = triangulation.vertices[triangulation.indices[triangleIndex + 2]];
-
-                float firstWeight = Random.value;
-                float secondWeight = Random.value;
-                if (firstWeight + secondWeight > 1f)
-                {
-                    firstWeight = 1f - firstWeight;
-                    secondWeight = 1f - secondWeight;
-                }
-
-                return a + (b - a) * firstWeight + (c - a) * secondWeight;
+                return hit.position;
             }
         }
 
@@ -176,6 +161,30 @@ public class MainItemSpawner : MonoBehaviour
             Random.Range(-spawnArea.x * 0.5f, spawnArea.x * 0.5f),
             groundHeight,
             Random.Range(-spawnArea.y * 0.5f, spawnArea.y * 0.5f));
+    }
+
+    private bool TryGetMapBounds(out Bounds bounds)
+    {
+        Collider[] colliders = FindObjectsOfType<Collider>();
+        float largestArea = 0f;
+        bounds = new Bounds();
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider collider = colliders[i];
+            if (collider == null || collider.isTrigger || collider.transform.IsChildOf(transform))
+                continue;
+
+            Bounds candidateBounds = collider.bounds;
+            float area = candidateBounds.size.x * candidateBounds.size.z;
+            if (area <= largestArea)
+                continue;
+
+            largestArea = area;
+            bounds = candidateBounds;
+        }
+
+        return largestArea > 0f;
     }
 
     private static string GetRandomPickupPrefabName()

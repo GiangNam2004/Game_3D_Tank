@@ -29,6 +29,13 @@ public class CameraControl : MonoBehaviour
         }
     }
 
+    public void SetTarget(Transform target)
+    {
+        m_Targets = target == null ? null : new[] { target };
+        m_MoveVelocity = Vector3.zero;
+        SetStartPositionAndSize();
+    }
+
     // Giữ lại hàm này để lúc vừa load màn, Camera nhảy ngay đến vị trí xe bạn
     public void SetStartPositionAndSize()
     {

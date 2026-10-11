@@ -29,6 +29,7 @@ public class GameManager : MonoBehaviour
     private WaitForSeconds m_EndWait;
     private bool m_PlayerDefeated;
     private int m_LevelNumber;
+    private int m_BossCount;
 
     private void Start()
     {
@@ -136,8 +137,8 @@ public class GameManager : MonoBehaviour
                     m_LevelNumber++;
                     m_RoundNumber = 0;
                     IncreaseEnemyHealthForLevel();
+                    RestoreEnemyIfNeeded();
                     ConfigureEnemiesForLevel();
-                    SpawnBossForLevel();
                     StartCoroutine (GameLoop ());
                 }
             }
@@ -151,6 +152,9 @@ public class GameManager : MonoBehaviour
     private IEnumerator RoundStarting ()
     {
         m_RoundNumber++;
+        if (m_RoundNumber == 3)
+            SpawnBossForLevel();
+
         ResetTanksForWave();
         DisableTankControl ();
 
@@ -237,8 +241,17 @@ public class GameManager : MonoBehaviour
 
     private void SpawnBossForLevel()
     {
-        if ((m_LevelNumber != 5 && m_LevelNumber != 10) || m_Tanks.Length <= 1)
+        if (m_BossCount > 0)
             return;
+
+        int bossCount = GetBossCountForLevel(m_LevelNumber);
+        if (bossCount == 0)
+            return;
+        if (m_Tanks.Length <= bossCount)
+        {
+            Debug.LogError("Not enough tank slots to spawn " + bossCount + " boss(es).");
+            return;
+        }
 
         GameObject bossPrefab = Resources.Load<GameObject>("Boss");
         if (bossPrefab == null)
@@ -247,20 +260,74 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        TankManager bossTank = m_Tanks[1];
-        if (bossTank.m_Instance != null)
-            Destroy(bossTank.m_Instance);
-
-        bossTank.m_Instance = Instantiate(bossPrefab, bossTank.m_SpawnPoint.position, bossTank.m_SpawnPoint.rotation);
-        bossTank.m_PlayerNumber = 2;
-        bossTank.Setup();
-
-        TankHealth bossHealth = bossTank.m_Instance.GetComponent<TankHealth>();
-        if (bossHealth != null)
+        for (int i = 1; i <= bossCount; i++)
         {
-            bossHealth.m_StartingHealth *= Mathf.Pow(1f + m_EnemyHealthIncreasePerLevel, m_LevelNumber - 1);
-            bossHealth.m_StartingHealth *= m_BossHealthMultiplier;
+            TankManager bossTank = m_Tanks[i];
+            if (bossTank.m_Instance != null)
+                Destroy(bossTank.m_Instance);
+
+            bossTank.m_Instance = Instantiate(bossPrefab, bossTank.m_SpawnPoint.position, bossTank.m_SpawnPoint.rotation);
+            bossTank.m_PlayerNumber = i + 1;
+            bossTank.Setup();
+
+            TankHealth bossHealth = bossTank.m_Instance.GetComponent<TankHealth>();
+            if (bossHealth != null)
+            {
+                bossHealth.m_StartingHealth *= Mathf.Pow(1f + m_EnemyHealthIncreasePerLevel, m_LevelNumber - 1);
+                bossHealth.m_StartingHealth *= m_BossHealthMultiplier;
+            }
+
+            TankShooting bossShooting = bossTank.m_Instance.GetComponent<TankShooting>();
+            if (bossShooting != null)
+                bossShooting.botMinimumLaunchForce = Mathf.Max(bossShooting.botMinimumLaunchForce, 15f);
         }
+
+        m_BossCount = bossCount;
+    }
+
+    private void RestoreEnemyIfNeeded()
+    {
+        if (m_BossCount == 0)
+            return;
+
+        for (int i = 1; i <= m_BossCount; i++)
+        {
+            TankManager enemyTank = m_Tanks[i];
+            if (enemyTank.m_Instance != null)
+                Destroy(enemyTank.m_Instance);
+
+            GameObject enemyPrefab = enemyTank.m_CustomPrefab;
+            if (enemyPrefab == null)
+                enemyPrefab = Resources.Load<GameObject>("Enemy");
+            if (enemyPrefab == null)
+                enemyPrefab = m_TankPrefab;
+            if (enemyPrefab == null)
+            {
+                Debug.LogError("Could not restore Enemy prefab after boss level.");
+                continue;
+            }
+
+            enemyTank.m_Instance = Instantiate(enemyPrefab, enemyTank.m_SpawnPoint.position, enemyTank.m_SpawnPoint.rotation);
+            enemyTank.m_PlayerNumber = i + 1;
+            enemyTank.Setup();
+
+            TankHealth enemyHealth = enemyTank.m_Instance.GetComponent<TankHealth>();
+            if (enemyHealth != null)
+                enemyHealth.m_StartingHealth *= Mathf.Pow(1f + m_EnemyHealthIncreasePerLevel, m_LevelNumber - 1);
+        }
+
+        m_BossCount = 0;
+    }
+
+    private static int GetBossCountForLevel(int level)
+    {
+        if (level == 4)
+            return 1;
+        if (level == 8)
+            return 2;
+        if (level == 10)
+            return 3;
+        return 0;
     }
 
     private void ResetTanksForWave()
@@ -337,7 +404,7 @@ public class GameManager : MonoBehaviour
             return 0;
 
         int waveIndex = Mathf.Clamp(m_RoundNumber - 1, 0, m_EnemiesPerWave.Length - 1);
-        return Mathf.Max(0, m_EnemiesPerWave[waveIndex]);
+        return Mathf.Max(m_BossCount, Mathf.Max(0, m_EnemiesPerWave[waveIndex]));
     }
 
     private void EnableTankControl()

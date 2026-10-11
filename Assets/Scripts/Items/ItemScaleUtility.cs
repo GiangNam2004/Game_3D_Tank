@@ -24,15 +24,22 @@ public static class ItemScaleUtility
 
     public static void AlignBottomToHeight(GameObject item, float groundHeight)
     {
+        float bottomHeight = GetBottomHeight(item);
+        if (!float.IsNaN(bottomHeight))
+            item.transform.position += Vector3.up * (groundHeight - bottomHeight);
+    }
+
+    public static float GetBottomHeight(GameObject item)
+    {
         Renderer[] renderers = item.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length == 0)
-            return;
+            return float.NaN;
 
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
             bounds.Encapsulate(renderers[i].bounds);
 
-        item.transform.position += Vector3.up * (groundHeight - bounds.min.y);
+        return bounds.min.y;
     }
 
     private static float GetLargestRendererSize(GameObject target)

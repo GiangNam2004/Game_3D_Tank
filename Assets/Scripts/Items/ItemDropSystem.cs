@@ -9,7 +9,7 @@ public static class ItemDropSystem
         "ReflectShield_Prefab"
     };
 
-    public static void TryDrop(Vector3 position, float chance)
+    public static void TryDrop(Vector3 position, float chance, float groundHeight)
     {
         if (Random.value > Mathf.Clamp01(chance))
             return;
@@ -22,8 +22,9 @@ public static class ItemDropSystem
             return;
         }
 
-        GameObject pickup = Object.Instantiate(prefab, position + Vector3.up * 0.35f, Quaternion.identity);
+        GameObject pickup = Object.Instantiate(prefab, position, Quaternion.identity);
         ItemScaleUtility.MatchTankSize(pickup);
+        ItemScaleUtility.AlignBottomToHeight(pickup, groundHeight);
         ItemPickup item = pickup.GetComponent<ItemPickup>();
         if (item == null)
             item = pickup.AddComponent<ItemPickup>();
