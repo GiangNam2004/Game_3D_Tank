@@ -118,13 +118,20 @@ public class GameManagerOnline : MonoBehaviourPunCallbacks
         return largestArea > 0f;
     }
 
-    public void ShowMatchWinner(int winnerActorNumber)
+    public void ShowMatchResult(int winnerActorNumber, int loserActorNumber)
     {
         if (matchEnded)
             return;
 
         matchEnded = true;
-        resultMessage = "PLAYER " + winnerActorNumber + " WIN!";
+        int localActorNumber = PhotonNetwork.LocalPlayer != null
+            ? PhotonNetwork.LocalPlayer.ActorNumber
+            : 0;
+        resultMessage = localActorNumber == winnerActorNumber
+            ? "YOU WIN!"
+            : localActorNumber == loserActorNumber
+                ? "YOU LOSE!"
+                : "PLAYER " + winnerActorNumber + " WIN!";
 
         TankMovement[] movements = FindObjectsOfType<TankMovement>();
         for (int i = 0; i < movements.Length; i++)

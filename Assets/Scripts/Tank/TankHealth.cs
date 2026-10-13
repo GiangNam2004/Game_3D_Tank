@@ -118,41 +118,58 @@ public class TankHealth : MonoBehaviourPun
 
     private void SetHealthUI()
     {
-        m_Slider.value = m_CurrentHealth;
-        m_FillImage.color = Color.Lerp(m_ZeroHealthColor, m_FullHealthColor, m_CurrentHealth/m_StartingHealth);
+        if (m_Slider != null)
+            m_Slider.value = m_CurrentHealth;
+
+        if (m_FillImage != null)
+            m_FillImage.color = Color.Lerp(m_ZeroHealthColor, m_FullHealthColor, m_CurrentHealth / m_StartingHealth);
     }
 
     private void OnDeath()
     {
         m_Dead = true;
-        m_ExplosionParticles.transform.position = transform.position;
-        m_ExplosionParticles.gameObject.SetActive(true);
 
-        m_ExplosionParticles.Play();
-        m_ExplosionAudio.Play();
+        if (m_ExplosionParticles != null)
+        {
+            m_ExplosionParticles.transform.position = transform.position;
+            m_ExplosionParticles.gameObject.SetActive(true);
+            m_ExplosionParticles.Play();
+        }
+
+        if (m_ExplosionAudio != null)
+            m_ExplosionAudio.Play();
+
+        if (PhotonNetwork.InRoom && photonView != null && photonView.IsMine)
+            ReportMatchResult();
 
         gameObject.SetActive(false);
+    }
 
-        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+    private void ReportMatchResult()
+    {
+        TankHealth[] remainingTanks = FindObjectsOfType<TankHealth>();
+        for (int i = 0; i < remainingTanks.Length; i++)
         {
-            TankHealth[] remainingTanks = FindObjectsOfType<TankHealth>();
-            for (int i = 0; i < remainingTanks.Length; i++)
-            {
-                PhotonView remainingView = remainingTanks[i].GetComponent<PhotonView>();
-                if (remainingView != null && remainingView.ViewID != 0 && remainingView.IsMine)
-                {
-                    photonView.RPC("ReportMatchWinner", RpcTarget.All, remainingView.OwnerActorNr);
-                    break;
-                }
-            }
+            PhotonView remainingView = remainingTanks[i].GetComponent<PhotonView>();
+            if (remainingView == null || remainingView.ViewID == 0 || remainingView.OwnerActorNr == photonView.OwnerActorNr)
+                continue;
+
+            remainingView.RPC(
+                "ReportMatchResult",
+                RpcTarget.All,
+                remainingView.OwnerActorNr,
+                photonView.OwnerActorNr);
+            return;
         }
+
+        Debug.LogError("Unable to report the match result because no remaining player tank was found.");
     }
 
     [PunRPC]
-    private void ReportMatchWinner(int winnerActorNumber)
+    private void ReportMatchResult(int winnerActorNumber, int loserActorNumber)
     {
         GameManagerOnline gameManager = FindObjectOfType<GameManagerOnline>();
         if (gameManager != null)
-            gameManager.ShowMatchWinner(winnerActorNumber);
+            gameManager.ShowMatchResult(winnerActorNumber, loserActorNumber);
     }
 }
