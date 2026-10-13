@@ -1,4 +1,5 @@
 using UnityEngine;
+using Photon.Pun; 
 
 public enum PickupType
 {
@@ -7,7 +8,7 @@ public enum PickupType
     ReflectShield
 }
 
-public class ItemPickup : MonoBehaviour
+public class ItemPickup : MonoBehaviourPun 
 {
     public PickupType type;
     public float healAmount = 35f;
@@ -31,17 +32,45 @@ public class ItemPickup : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        if (collected) return;
+
         TankHealth tank = other.GetComponentInParent<TankHealth>();
         if (tank == null || !tank.isActiveAndEnabled)
             return;
 
-        if (collected || !tank.CanApplyPickup(type))
+        // CHỐT CHẶN 1: Bỏ qua kiểm tra quyền mạng nếu xe tăng là Bot Offline (ViewID = 0)
+        if (PhotonNetwork.InRoom)
+        {
+            PhotonView tankPv = tank.GetComponent<PhotonView>();
+            if (tankPv != null && tankPv.ViewID != 0 && !tankPv.IsMine) 
+                return;
+        }
+
+        if (!tank.CanApplyPickup(type))
             return;
 
         if (tank.ApplyPickup(type, healAmount, speedMultiplier, speedDuration))
         {
             collected = true;
-            Destroy(gameObject);
+
+            // CHỐT CHẶN 2: Chỉ gửi lệnh xóa qua mạng nếu vật phẩm có ID mạng
+            if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+            {
+                photonView.RPC("RPC_DestroyPickup", RpcTarget.MasterClient);
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+        }
+    }
+
+    [PunRPC]
+    private void RPC_DestroyPickup()
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            PhotonNetwork.Destroy(gameObject);
         }
     }
 }

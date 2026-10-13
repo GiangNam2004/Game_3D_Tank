@@ -1,25 +1,46 @@
 ﻿using UnityEngine;
+using Photon.Pun; 
 
-public class ShellExplosion : MonoBehaviour
+public class ShellExplosion : MonoBehaviourPun 
 {
-    public LayerMask m_TankMask;                        // Used to filter what the explosion affects, this should be set to "Players".
-    public ParticleSystem m_ExplosionParticles;         // Reference to the particles that will play on explosion.
-    public AudioSource m_ExplosionAudio;                // Reference to the audio that will play on explosion.
-    public float m_MaxDamage = 100f;                    // The amount of damage done if the explosion is centred on a tank.
-    public float m_ExplosionForce = 1000f;              // The amount of force added to a tank at the centre of the explosion.
-    public float m_MaxLifeTime = 2f;                    // The time in seconds before the shell is removed.
-    public float m_ExplosionRadius = 5f;                // The maximum distance away from the explosion tanks can be and are still affected.
+    public LayerMask m_TankMask;                        
+    public ParticleSystem m_ExplosionParticles;         
+    public AudioSource m_ExplosionAudio;                
+    public float m_MaxDamage = 100f;                    
+    public float m_ExplosionForce = 1000f;              
+    public float m_MaxLifeTime = 2f;                    
+    public float m_ExplosionRadius = 5f;                
 
+    private bool m_Exploded = false; 
 
     private void Start ()
     {
-        // If it isn't destroyed by then, destroy the shell after it's lifetime.
-        Destroy (gameObject, m_MaxLifeTime);
+        if (PhotonNetwork.InRoom)
+        {
+            if (photonView.IsMine) StartCoroutine(NetworkDestroyRoutine());
+        }
+        else
+        {
+            Destroy (gameObject, m_MaxLifeTime);
+        }
     }
 
+    private System.Collections.IEnumerator NetworkDestroyRoutine()
+    {
+        yield return new WaitForSeconds(m_MaxLifeTime);
+        if (photonView != null && photonView.IsMine && !m_Exploded)
+        {
+            m_Exploded = true;
+            photonView.RPC("RPC_PlayExplosion", RpcTarget.All, transform.position);
+            HideShell();
+            StartCoroutine(DelayDestroy());
+        }
+    }
 
     private void OnTriggerEnter (Collider other)
     {
+        if (m_Exploded) return;
+
         ReflectShield shield = other.GetComponentInParent<ReflectShield>();
         if (shield != null)
         {
@@ -27,6 +48,74 @@ public class ShellExplosion : MonoBehaviour
             return;
         }
 
+        // ĐÃ SỬA: Chỉ kiểm tra InRoom. Bỏ điều kiện ViewID != 0 để chống tự sát nhầm
+        if (PhotonNetwork.InRoom)
+        {
+            // Nếu không phải đạn do mình bắn ra, đứng im chờ lệnh nổ từ chủ nhân, tuyệt đối không tự xử lý!
+            if (photonView == null || !photonView.IsMine) return; 
+            
+            m_Exploded = true;
+            
+            // 1. Gửi lệnh nổ
+            photonView.RPC("RPC_PlayExplosion", RpcTarget.All, transform.position);
+
+            // 2. Tính sát thương
+            CalculateAndApplyDamage();
+
+            // 3. Tàng hình đạn ngay lập tức
+            HideShell();
+            
+            // 4. Chờ 0.05s cho mạng xác nhận gửi xong lệnh RPC rồi mới xóa
+            StartCoroutine(DelayDestroy());
+        }
+        else 
+        {
+            // CHẾ ĐỘ OFFLINE
+            m_Exploded = true;
+            RPC_PlayExplosion(transform.position);
+            CalculateAndApplyDamage();
+            Destroy(gameObject);
+        }
+    }
+
+    private void HideShell()
+    {
+        // Tắt va chạm và tàng hình vỏ đạn
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
+        
+        MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>();
+        foreach (var r in renderers) r.enabled = false;
+    }
+
+    private System.Collections.IEnumerator DelayDestroy()
+    {
+        yield return new WaitForSeconds(0.05f); 
+        if (photonView != null && photonView.IsMine)
+        {
+            PhotonNetwork.Destroy(gameObject);
+        }
+    }
+
+    [PunRPC]
+    public void RPC_PlayExplosion(Vector3 explosionPosition)
+    {
+        if (m_ExplosionParticles != null)
+        {
+            m_ExplosionParticles.transform.position = explosionPosition;
+            m_ExplosionParticles.transform.parent = null;
+            m_ExplosionParticles.Play();
+            Destroy(m_ExplosionParticles.gameObject, m_ExplosionParticles.main.duration);
+        }
+        
+        if (m_ExplosionAudio != null && m_ExplosionAudio.isActiveAndEnabled) 
+        {
+            m_ExplosionAudio.Play();
+        }
+    }
+
+    private void CalculateAndApplyDamage()
+    {
         Collider[] allColliders = Physics.OverlapSphere(transform.position, m_ExplosionRadius);
         for (int i = 0; i < allColliders.Length; i++)
         {
@@ -35,69 +124,28 @@ public class ShellExplosion : MonoBehaviour
                 medical.TakeDamage(CalculateDamage(medical.transform.position));
         }
 
-        // Collect all the colliders in a sphere from the shell's current position to a radius of the explosion radius.
-        Collider[] colliders = Physics.OverlapSphere (transform.position, m_ExplosionRadius, m_TankMask);
-
-        // Go through all the colliders...
+        Collider[] colliders = Physics.OverlapSphere(transform.position, m_ExplosionRadius, m_TankMask);
         for (int i = 0; i < colliders.Length; i++)
         {
-            // ... and find their rigidbody.
-            Rigidbody targetRigidbody = colliders[i].GetComponent<Rigidbody> ();
+            Rigidbody targetRigidbody = colliders[i].GetComponent<Rigidbody>();
+            if (!targetRigidbody) continue;
 
-            // If they don't have a rigidbody, go on to the next collider.
-            if (!targetRigidbody)
-                continue;
+            targetRigidbody.AddExplosionForce(m_ExplosionForce, transform.position, m_ExplosionRadius);
 
-            // Add an explosion force.
-            targetRigidbody.AddExplosionForce (m_ExplosionForce, transform.position, m_ExplosionRadius);
+            TankHealth targetHealth = targetRigidbody.GetComponent<TankHealth>();
+            if (!targetHealth) continue;
 
-            // Find the TankHealth script associated with the rigidbody.
-            TankHealth targetHealth = targetRigidbody.GetComponent<TankHealth> ();
-
-            // If there is no TankHealth script attached to the gameobject, go on to the next collider.
-            if (!targetHealth)
-                continue;
-
-            // Calculate the amount of damage the target should take based on it's distance from the shell.
-            float damage = CalculateDamage (targetRigidbody.position);
-
-            // Deal this damage to the tank.
-            targetHealth.TakeDamage (damage);
+            float damage = CalculateDamage(targetRigidbody.position);
+            targetHealth.TakeDamage(damage); 
         }
-
-        // Unparent the particles from the shell.
-        m_ExplosionParticles.transform.parent = null;
-
-        // Play the particle system.
-        m_ExplosionParticles.Play();
-
-        // Play the explosion sound effect.
-        m_ExplosionAudio.Play();
-
-        // Once the particles have finished, destroy the gameobject they are on.
-Destroy (m_ExplosionParticles.gameObject, m_ExplosionParticles.main.duration);
-        // Destroy the shell.
-        Destroy (gameObject);
     }
-
 
     private float CalculateDamage (Vector3 targetPosition)
     {
-        // Create a vector from the shell to the target.
         Vector3 explosionToTarget = targetPosition - transform.position;
-
-        // Calculate the distance from the shell to the target.
         float explosionDistance = explosionToTarget.magnitude;
-
-        // Calculate the proportion of the maximum distance (the explosionRadius) the target is away.
         float relativeDistance = (m_ExplosionRadius - explosionDistance) / m_ExplosionRadius;
-
-        // Calculate damage as this proportion of the maximum possible damage.
         float damage = relativeDistance * m_MaxDamage;
-
-        // Make sure that the minimum damage is always 0.
-        damage = Mathf.Max (0f, damage);
-
-        return damage;
+        return Mathf.Max (0f, damage);
     }
 }

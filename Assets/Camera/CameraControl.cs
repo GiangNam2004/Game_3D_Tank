@@ -28,7 +28,8 @@ public class CameraControl : MonoBehaviour
         }
     }
 
-    private void FixedUpdate()
+    // Đổi chữ FixedUpdate thành LateUpdate
+    private void LateUpdate()
     {
         // 1. Kiểm tra xem GameManager đã giao mục tiêu cho Camera chưa
         if (m_Targets != null && m_Targets.Length > 0 && m_Targets[0] != null)

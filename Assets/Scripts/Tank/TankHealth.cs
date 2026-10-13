@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
-using Photon.Pun; // 1. Bắt buộc thêm thư viện mạng
+using Photon.Pun; 
 
-public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang MonoBehaviourPun
+public class TankHealth : MonoBehaviourPun 
 {
     public float m_StartingHealth = 100f;          
     public Slider m_Slider;                        
@@ -20,7 +20,6 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
     {
         m_ExplosionParticles = Instantiate(m_ExplosionPrefab).GetComponent<ParticleSystem>();
         m_ExplosionAudio = m_ExplosionParticles.GetComponent<AudioSource>();
-
         m_ExplosionParticles.gameObject.SetActive(false);
     }
 
@@ -28,28 +27,24 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
     {
         m_CurrentHealth = m_StartingHealth;
         m_Dead = false;
-
         SetHealthUI();
     }
     
     public void TakeDamage(float amount)
     {
-        // Nếu có mạng VÀ xe đã được cấp ID mạng, thì gửi lệnh RPC
-        if (PhotonNetwork.IsConnected && photonView.ViewID != 0)
+        if (PhotonNetwork.InRoom && photonView.ViewID != 0)
         {
             photonView.RPC("TakeDamageRPC", RpcTarget.All, amount);
         }
         else 
         {
-            // Nếu chơi Offline, trừ máu trực tiếp luôn không cần gửi mạng
             TakeDamageRPC(amount);
         }
     }
 
-    [PunRPC] // 4. Gắn nhãn này để Photon nhận diện đây là Hàm nhận tin nhắn qua mạng
+    [PunRPC] 
     public void TakeDamageRPC(float amount)
     {
-        // Mọi logic trừ máu, đổi màu thanh máu và nổ tung được dời vào đây
         m_CurrentHealth -= amount;
         SetHealthUI();
 
@@ -75,19 +70,32 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
         switch (type)
         {
             case PickupType.ToolChest:
-                m_CurrentHealth = Mathf.Min(m_StartingHealth, m_CurrentHealth + healAmount);
-                SetHealthUI();
-                return true;
+            // Thêm kiểm tra photonView != null để chống văng lỗi NullReference ở chế độ Offline
+            if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+                photonView.RPC("HealRPC", RpcTarget.All, healAmount);
+            else
+                HealRPC(healAmount);
+            return true;
+
             case PickupType.FuelTank:
                 TankMovement movement = GetComponent<TankMovement>();
                 if (movement != null)
                     movement.ApplySpeedBoost(speedMultiplier, speedDuration);
                 return true;
+
             case PickupType.ReflectShield:
                 return ActivateReflectShield();
         }
 
         return false;
+    }
+
+    // HÀM MỚI: Đồng bộ lượng máu được hồi qua mạng
+    [PunRPC]
+    public void HealRPC(float amount)
+    {
+        m_CurrentHealth = Mathf.Min(m_StartingHealth, m_CurrentHealth + amount);
+        SetHealthUI();
     }
 
     private bool ActivateReflectShield()
@@ -125,7 +133,7 @@ public class TankHealth : MonoBehaviourPun // 2. Đổi từ MonoBehaviour sang 
 
         gameObject.SetActive(false);
 
-        if (PhotonNetwork.InRoom && photonView.ViewID != 0)
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
         {
             TankHealth[] remainingTanks = FindObjectsOfType<TankHealth>();
             for (int i = 0; i < remainingTanks.Length; i++)

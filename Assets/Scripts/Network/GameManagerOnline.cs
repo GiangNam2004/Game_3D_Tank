@@ -21,14 +21,20 @@ public class GameManagerOnline : MonoBehaviourPunCallbacks
 
     void Start()
     {
-        // Kiểm tra xem máy chủ đã sẵn sàng và 2 người đã vào chung phòng chưa
+        // TỐI ƯU MẠNG: Tăng gấp đôi tần suất gửi/nhận gói tin để game không bị giật
+        PhotonNetwork.SendRate = 40;
+        PhotonNetwork.SerializationRate = 40;
+
         if (PhotonNetwork.IsConnectedAndReady && PhotonNetwork.InRoom)
         {
             hasMapBounds = TryGetMapBounds(out mapBounds);
             Vector3 spawnPosition = GetRandomSpawnPosition();
 
-            // Lệnh thả xe tăng từ thư mục Resources xuống mặt đất (trục Y = 0)
-            GameObject playerTank = PhotonNetwork.Instantiate("Tank", spawnPosition, Quaternion.identity);
+          // Đọc tên Tank người chơi đã chọn từ bộ nhớ tạm (nếu chưa chọn thì mặc định là "Tank1")
+    string selectedTankPrefab = PlayerPrefs.GetString("SelectedTank", "Tank1"); 
+    
+    // Khởi tạo đúng chiếc Tank đó qua mạng
+    GameObject playerTank = PhotonNetwork.Instantiate(selectedTankPrefab, spawnPosition, Quaternion.identity);
             PhotonView playerView = playerTank.GetComponent<PhotonView>();
             CameraControl cameraControl = FindObjectOfType<CameraControl>();
             if (playerView != null && playerView.IsMine && cameraControl != null)
