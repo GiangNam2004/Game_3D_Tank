@@ -1,34 +1,40 @@
-﻿using UnityEngine;
+using UnityEngine;
+using Photon.Pun;
 
-public class ToxicEffect : MonoBehaviour
+public class ToxicEffect : MonoBehaviourPun
 {
     private TankHealth health;
-    private MeshRenderer[] renderers;
-    private Color[] originalColors;
     private int ticks = 5; 
 
     void Start()
     {
-        health = GetComponent<TankHealth>();
+        health = GetComponentInParent<TankHealth>();
         
-        // Nhuốm màu xe thành Xanh Lá (Trúng độc)
-        renderers = GetComponentsInChildren<MeshRenderer>();
-        originalColors = new Color[renderers.Length];
-        
-        for (int i = 0; i < renderers.Length; i++)
+        // Đổi sang màu Xanh Lá nếu xe không đang bị đóng băng
+        IceEffect ice = GetComponent<IceEffect>();
+        if (health != null && (ice == null || !ice.enabled))
         {
-            originalColors[i] = renderers[i].material.color;
-            renderers[i].material.color = Color.green; // Đổi sang màu xanh lá
+            health.SetEffectColor(Color.green);
         }
 
         InvokeRepeating("TakePoison", 1f, 1f); // Mỗi giây rút máu 1 lần
+    }
+
+    public void RefreshToxic()
+    {
+        ticks = 5;
     }
 
     void TakePoison()
     {
         if (health != null) 
         {
-            health.TakeDamage(10f); // Mỗi giây mất 10 máu (bạn có thể tự chỉnh số này)
+            // Trong Multiplayer, chỉ chủ sở hữu của xe (IsMine) mới gọi TakeDamage để tránh trừ máu x2 lần
+            PhotonView pv = health.GetComponent<PhotonView>();
+            if (pv == null || !PhotonNetwork.InRoom || pv.IsMine)
+            {
+                health.TakeDamage(10f); // Mỗi giây mất 10 máu
+            }
         }
         
         ticks--;
@@ -37,14 +43,19 @@ public class ToxicEffect : MonoBehaviour
         if (ticks <= 0)
         {
             CancelInvoke("TakePoison");
-
-            // Trả lại màu sơn gốc cho xe
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                if (renderers[i] != null) renderers[i].material.color = originalColors[i];
-            }
-
+            enabled = false;
+            if (health != null) health.RestoreOriginalColor();
             Destroy(this); 
+        }
+    }
+
+    private void OnDestroy()
+    {
+        CancelInvoke("TakePoison");
+        enabled = false;
+        if (health != null)
+        {
+            health.RestoreOriginalColor();
         }
     }
 }

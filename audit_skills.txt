@@ -1,0 +1,56 @@
+=== Tank ===
+Slot 1: Spread=True, Giant=False, Elemental=False, DeathSpin=False
+Slot 2: Mine=True, Turret=False, Smoke=False, MagPull=False
+Slot 3: Homing=True, Clone=False, Shield=False, Dash=False
+  m_Shell: Shell (Path: Assets/Resources/Shell.prefab, InResources: True, HasPhotonView: True)
+  m_IceShellPrefab: NULL
+  m_ToxicShellPrefab: NULL
+  m_HomingShellPrefab: HomingShell (Path: Assets/Resources/HomingShell.prefab, InResources: True, HasPhotonView: True)
+  m_MinePrefab: Mine (Path: Assets/Resources/Mine.prefab, InResources: True, HasPhotonView: True)
+  m_TurretPrefab: NULL
+  m_SmokePrefab: NULL
+  m_ClonePrefab: NULL
+  m_ShieldPrefab: NULL
+
+=== Tank1 ===
+Slot 1: Spread=False, Giant=True, Elemental=False, DeathSpin=False
+Slot 2: Mine=False, Turret=True, Smoke=False, MagPull=False
+Slot 3: Homing=False, Clone=True, Shield=False, Dash=False
+  m_Shell: Silver_Rocket (Path: Assets/Resources/Silver_Rocket.prefab, InResources: True, HasPhotonView: True)
+  m_IceShellPrefab: NULL
+  m_ToxicShellPrefab: NULL
+  m_HomingShellPrefab: HomingShell (Path: Assets/Resources/HomingShell.prefab, InResources: True, HasPhotonView: True)
+  m_MinePrefab: Mine (Path: Assets/Resources/Mine.prefab, InResources: True, HasPhotonView: True)
+  m_TurretPrefab: Machine_gun_004 (Path: Assets/Resources/Machine_gun_004.prefab, InResources: True, HasPhotonView: True)
+  m_SmokePrefab: NULL
+  m_ClonePrefab: Tank1_Clone (Path: Assets/Resources/Tank1_Clone.prefab, InResources: True, HasPhotonView: True)
+  m_ShieldPrefab: NULL
+
+=== Tank2 ===
+Slot 1: Spread=False, Giant=False, Elemental=True, DeathSpin=False
+Slot 2: Mine=False, Turret=False, Smoke=True, MagPull=False
+Slot 3: Homing=False, Clone=False, Shield=True, Dash=False
+  m_Shell: Golden_Rocket_Prefab Variant (Path: Assets/Resources/Golden_Rocket_Prefab Variant.prefab, InResources: True, HasPhotonView: True)
+  m_IceShellPrefab: Ice_Rocket (Path: Assets/Resources/Ice_Rocket.prefab, InResources: True, HasPhotonView: True)
+  m_ToxicShellPrefab: Toxic_Rocket (Path: Assets/Resources/Toxic_Rocket.prefab, InResources: True, HasPhotonView: True)
+  m_HomingShellPrefab: Diamond_Rocket (Path: Assets/Resources/Diamond_Rocket.prefab, InResources: True, HasPhotonView: True)
+  m_MinePrefab: Mine (Path: Assets/Resources/Mine.prefab, InResources: True, HasPhotonView: True)
+  m_TurretPrefab: NULL
+  m_SmokePrefab: Smoke (Path: Assets/Resources/Smoke.prefab, InResources: True, HasPhotonView: True)
+  m_ClonePrefab: NULL
+  m_ShieldPrefab: NULL
+
+=== Tank3 ===
+Slot 1: Spread=False, Giant=False, Elemental=False, DeathSpin=True
+Slot 2: Mine=False, Turret=False, Smoke=False, MagPull=True
+Slot 3: Homing=False, Clone=False, Shield=False, Dash=True
+  m_Shell: Shell (Path: Assets/Resources/Shell.prefab, InResources: True, HasPhotonView: True)
+  m_IceShellPrefab: NULL
+  m_ToxicShellPrefab: NULL
+  m_HomingShellPrefab: HomingShell (Path: Assets/Resources/HomingShell.prefab, InResources: True, HasPhotonView: True)
+  m_MinePrefab: Mine (Path: Assets/Resources/Mine.prefab, InResources: True, HasPhotonView: True)
+  m_TurretPrefab: NULL
+  m_SmokePrefab: NULL
+  m_ClonePrefab: NULL
+  m_ShieldPrefab: NULL
+

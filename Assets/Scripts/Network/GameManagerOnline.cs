@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 using Photon.Pun;
 using UnityEngine.SceneManagement;
@@ -30,11 +30,23 @@ public class GameManagerOnline : MonoBehaviourPunCallbacks
             hasMapBounds = TryGetMapBounds(out mapBounds);
             Vector3 spawnPosition = GetRandomSpawnPosition();
 
-          // Đọc tên Tank người chơi đã chọn từ bộ nhớ tạm (nếu chưa chọn thì mặc định là "Tank1")
-    string selectedTankPrefab = PlayerPrefs.GetString("SelectedTank", "Tank1"); 
-    
-    // Khởi tạo đúng chiếc Tank đó qua mạng
-    GameObject playerTank = PhotonNetwork.Instantiate(selectedTankPrefab, spawnPosition, Quaternion.identity);
+            // Đọc tên Tank người chơi đã chọn từ CustomProperties hoặc PlayerPrefs
+            string selectedTankPrefab = PlayerPrefs.GetString("SelectedTank", "Tank");
+            if (PhotonNetwork.LocalPlayer != null && 
+                PhotonNetwork.LocalPlayer.CustomProperties != null && 
+                PhotonNetwork.LocalPlayer.CustomProperties.ContainsKey("SelectedTank"))
+            {
+                selectedTankPrefab = (string)PhotonNetwork.LocalPlayer.CustomProperties["SelectedTank"];
+            }
+
+            if (Resources.Load<GameObject>(selectedTankPrefab) == null)
+            {
+                Debug.LogWarning("Không tìm thấy Prefab '" + selectedTankPrefab + "' trong Resources, fallback về 'Tank'");
+                selectedTankPrefab = "Tank";
+            }
+            
+            // Khởi tạo đúng chiếc Tank đó qua mạng
+            GameObject playerTank = PhotonNetwork.Instantiate(selectedTankPrefab, spawnPosition, Quaternion.identity);
             PhotonView playerView = playerTank.GetComponent<PhotonView>();
             CameraControl cameraControl = FindObjectOfType<CameraControl>();
             if (playerView != null && playerView.IsMine && cameraControl != null)

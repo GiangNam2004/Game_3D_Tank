@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 
 public class TankMovement : MonoBehaviour
@@ -42,10 +42,23 @@ public class TankMovement : MonoBehaviour
         tankHealth = GetComponent<TankHealth>(); 
     }
 
+    public bool CanControl()
+    {
+        Photon.Pun.PhotonView pv = GetComponent<Photon.Pun.PhotonView>();
+        bool isOnlineGame = Photon.Pun.PhotonNetwork.InRoom && pv != null && pv.ViewID != 0;
+        return (isOnlineGame && pv.IsMine) || (!isOnlineGame && m_PlayerNumber == 1);
+    }
+
+    public bool IsBot()
+    {
+        Photon.Pun.PhotonView pv = GetComponent<Photon.Pun.PhotonView>();
+        bool isOnlineGame = Photon.Pun.PhotonNetwork.InRoom && pv != null && pv.ViewID != 0;
+        return !isOnlineGame && m_PlayerNumber >= 2;
+    }
+
     private void OnEnable ()
     {
-        // ĐÃ SỬA: Áp dụng cho TẤT CẢ các Bot (2, 3, 4...)
-        if (m_PlayerNumber >= 2 && agent != null)
+        if (IsBot() && agent != null)
         {
             m_Rigidbody.isKinematic = true;
             agent.enabled = true;
@@ -57,24 +70,33 @@ public class TankMovement : MonoBehaviour
             
             if (agent.isOnNavMesh) agent.isStopped = false;
         }
-        else if (m_PlayerNumber == 1) // Chỉ xe của người chơi mới dùng vật lý cơ bản
+        else if (CanControl()) // Chỉ xe của người chơi mới dùng vật lý cơ bản
         {
             m_Rigidbody.isKinematic = false;
+            if (agent != null) agent.enabled = false;
+        }
+        else
+        {
+            if (agent != null) agent.enabled = false;
         }
     }
 
     private void Start()
     {
-        // ĐÃ SỬA: TẤT CẢ các Bot đều phải đi tìm mục tiêu
-        if (m_PlayerNumber >= 2)
+        if (CanControl())
+        {
+            if (agent != null) agent.enabled = false;
+            joystick = FindObjectOfType<FloatingJoystick>();
+        }
+        else if (IsBot())
         {
             FindPlayerTarget();
             targetRefreshTimer = targetRefreshInterval;
         }
-        else // Người chơi
+        else
         {
             if (agent != null) agent.enabled = false;
-            joystick = FindObjectOfType<FloatingJoystick>();
+            enabled = false;
         }
     }
 
@@ -100,7 +122,7 @@ public class TankMovement : MonoBehaviour
                 agent.speed = baseAgentSpeed;
         }
 
-        if (m_PlayerNumber == 1)
+        if (CanControl())
         {
             float h = 0f;
             float v = 0f;
@@ -119,7 +141,7 @@ public class TankMovement : MonoBehaviour
             m_Movement = GetCameraRelativeMovement(h, v);
         }
         // ĐÃ SỬA: TẤT CẢ Bot đều được chạy vòng lặp suy nghĩ AI
-        else if (m_PlayerNumber >= 2 && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+        else if (IsBot() && agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
             targetRefreshTimer -= Time.deltaTime;
             if (targetRefreshTimer <= 0f)
@@ -151,7 +173,7 @@ public class TankMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (m_PlayerNumber != 1) return;
+        if (!CanControl()) return;
 
         m_Rigidbody.angularVelocity = Vector3.zero;
 
@@ -179,6 +201,21 @@ public class TankMovement : MonoBehaviour
         speedBoostUntil = Mathf.Max(speedBoostUntil, Time.time + Mathf.Max(0f, duration));
         if (agent != null)
             agent.speed = baseAgentSpeed * m_SpeedMultiplier;
+    }
+
+    public void ResumeFromFreeze()
+    {
+        if (IsBot())
+        {
+            stateTimer = 0f;
+            targetRefreshTimer = 0f;
+            FindPlayerTarget();
+            if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                ProcessAIBrain();
+            }
+        }
     }
 
     private void Turn()

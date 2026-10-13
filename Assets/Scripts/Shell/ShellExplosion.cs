@@ -10,6 +10,7 @@ public class ShellExplosion : MonoBehaviourPun, IPunInstantiateMagicCallback
     public float m_ExplosionForce = 1000f;              
     public float m_MaxLifeTime = 2f;                    
     public float m_ExplosionRadius = 5f;                
+    [HideInInspector] public GameObject m_ShooterTank; 
 
     private bool m_Exploded = false; 
 
@@ -77,6 +78,14 @@ public class ShellExplosion : MonoBehaviourPun, IPunInstantiateMagicCallback
         {
             shield.ReflectProjectile(GetComponent<Collider>());
             return;
+        }
+
+        // Bỏ qua va chạm trực tiếp với xe chủ sở hữu (ví dụ xe đặt Ụ súng)
+        if (m_ShooterTank != null)
+        {
+            TankHealth hitHealth = other.GetComponentInParent<TankHealth>();
+            if (hitHealth != null && (hitHealth.gameObject == m_ShooterTank || hitHealth.transform.IsChildOf(m_ShooterTank.transform)))
+                return;
         }
 
         // ĐÃ SỬA: Chỉ kiểm tra InRoom. Bỏ điều kiện ViewID != 0 để chống tự sát nhầm
@@ -164,6 +173,10 @@ public class ShellExplosion : MonoBehaviourPun, IPunInstantiateMagicCallback
         {
             Rigidbody targetRigidbody = colliders[i].GetComponent<Rigidbody>();
             if (!targetRigidbody) continue;
+
+            // Bỏ qua gây sát thương nổ lên xe chủ sở hữu (ví dụ xe đặt Ụ súng)
+            if (m_ShooterTank != null && (targetRigidbody.gameObject == m_ShooterTank || targetRigidbody.transform.IsChildOf(m_ShooterTank.transform)))
+                continue;
 
             targetRigidbody.AddExplosionForce(m_ExplosionForce, transform.position, m_ExplosionRadius);
 

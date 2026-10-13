@@ -395,9 +395,19 @@ public class TankShooting : MonoBehaviourPun
 
     public void PlaceTurret() { 
         if (Time.time < m_NextMineTime) return; 
-        Vector3 dropPos = transform.position + transform.right * 2f; 
+        Vector3 dropPos = transform.position + transform.right * 2.5f; 
         PlaySpawnVFX(dropPos);
-        if (m_TurretPrefab != null) { NetworkInstantiate(m_TurretPrefab, dropPos, transform.rotation); } 
+        if (m_TurretPrefab != null) { 
+            GameObject turretObj = NetworkInstantiate(m_TurretPrefab, dropPos, transform.rotation); 
+            if (turretObj != null)
+            {
+                TurretAI turretAI = turretObj.GetComponent<TurretAI>();
+                if (turretAI != null)
+                {
+                    turretAI.SetOwner(gameObject, m_PlayerNumber);
+                }
+            }
+        } 
         m_NextMineTime = Time.time + m_MineCooldown; 
     }
 
@@ -407,6 +417,10 @@ public class TankShooting : MonoBehaviourPun
 
         if (m_ClonePrefab != null) { 
             GameObject clone = NetworkInstantiate(m_ClonePrefab, transform.position, transform.rotation); 
+            if (clone != null && clone.GetComponent<TankDecoy>() == null)
+            {
+                clone.AddComponent<TankDecoy>();
+            }
             StartCoroutine(NetworkDestroy(clone, 7f)); 
         } 
 
@@ -433,7 +447,12 @@ public class TankShooting : MonoBehaviourPun
 
         Rigidbody shellPrefab = m_IsNextIce ? m_IceShellPrefab : m_ToxicShellPrefab; 
         if (shellPrefab != null) { 
-            NetworkInstantiate(shellPrefab.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_CurrentLaunchForce * m_FireTransform.forward); 
+            GameObject shellObj = NetworkInstantiate(shellPrefab.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_CurrentLaunchForce * m_FireTransform.forward); 
+            if (shellObj != null)
+            {
+                ElementalShell elemScript = shellObj.GetComponent<ElementalShell>();
+                if (elemScript != null) elemScript.m_ShooterPlayerNumber = m_PlayerNumber;
+            }
         } 
         m_IsNextIce = !m_IsNextIce; 
         m_NextSkillTime = Time.time + m_SkillCooldown; 
@@ -442,7 +461,20 @@ public class TankShooting : MonoBehaviourPun
     public void ActivateShield() { 
         if (Time.time < m_NextHomingTime) return; 
         PlaySpawnVFX(transform.position);
-        if (m_ShieldPrefab != null) { NetworkInstantiate(m_ShieldPrefab, transform.position, transform.rotation); } 
+
+        TankHealth th = GetComponent<TankHealth>();
+        if (th != null)
+        {
+            if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+                photonView.RPC("ActivateReflectShieldRPC", RpcTarget.All);
+            else
+                th.ActivateReflectShieldRPC();
+        }
+        else if (m_ShieldPrefab != null)
+        {
+            NetworkInstantiate(m_ShieldPrefab, transform.position, transform.rotation);
+        }
+
         m_NextHomingTime = Time.time + m_HomingCooldown; 
     }
 

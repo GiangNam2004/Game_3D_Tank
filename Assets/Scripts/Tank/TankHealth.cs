@@ -15,12 +15,28 @@ public class TankHealth : MonoBehaviourPun
     private ParticleSystem m_ExplosionParticles;   
     public float m_CurrentHealth; 
     private bool m_Dead;           
+    private MeshRenderer[] m_MeshRenderers;
+    private Color[] m_OriginalColors;
 
     private void Awake()
     {
         m_ExplosionParticles = Instantiate(m_ExplosionPrefab).GetComponent<ParticleSystem>();
         m_ExplosionAudio = m_ExplosionParticles.GetComponent<AudioSource>();
         m_ExplosionParticles.gameObject.SetActive(false);
+
+        // Lưu màu gốc của xe để khôi phục chính xác sau các hiệu ứng (Băng, Độc, Hồi máu, Tăng tốc)
+        m_MeshRenderers = GetComponentsInChildren<MeshRenderer>();
+        if (m_MeshRenderers != null && m_MeshRenderers.Length > 0)
+        {
+            m_OriginalColors = new Color[m_MeshRenderers.Length];
+            for (int i = 0; i < m_MeshRenderers.Length; i++)
+            {
+                if (m_MeshRenderers[i] != null && m_MeshRenderers[i].material != null)
+                {
+                    m_OriginalColors[i] = m_MeshRenderers[i].material.color;
+                }
+            }
+        }
     }
 
     private void OnEnable()
@@ -28,6 +44,13 @@ public class TankHealth : MonoBehaviourPun
         m_CurrentHealth = m_StartingHealth;
         m_Dead = false;
         SetHealthUI();
+
+        IceEffect ice = GetComponent<IceEffect>();
+        if (ice != null) Destroy(ice);
+        ToxicEffect toxic = GetComponent<ToxicEffect>();
+        if (toxic != null) Destroy(toxic);
+
+        RestoreOriginalColor();
     }
     
     public void TakeDamage(float amount)
@@ -190,9 +213,14 @@ public class TankHealth : MonoBehaviourPun
     [PunRPC]
     public void ApplyIceEffectRPC()
     {
-        if (GetComponent<IceEffect>() == null)
+        IceEffect existingIce = GetComponent<IceEffect>();
+        if (existingIce == null)
         {
             gameObject.AddComponent<IceEffect>();
+        }
+        else
+        {
+            existingIce.RefreshIce();
         }
     }
 
@@ -212,9 +240,55 @@ public class TankHealth : MonoBehaviourPun
     [PunRPC]
     public void ApplyToxicEffectRPC()
     {
-        if (GetComponent<ToxicEffect>() == null)
+        ToxicEffect existingToxic = GetComponent<ToxicEffect>();
+        if (existingToxic == null)
         {
             gameObject.AddComponent<ToxicEffect>();
+        }
+        else
+        {
+            existingToxic.RefreshToxic();
+        }
+    }
+
+    public void SetEffectColor(Color color)
+    {
+        if (m_MeshRenderers == null) return;
+        for (int i = 0; i < m_MeshRenderers.Length; i++)
+        {
+            if (m_MeshRenderers[i] != null && m_MeshRenderers[i].material != null)
+            {
+                m_MeshRenderers[i].material.color = color;
+            }
+        }
+    }
+
+    public void RestoreOriginalColor()
+    {
+        // Nếu vẫn còn hiệu ứng Băng đang bật thì hiển thị màu Cyan
+        IceEffect ice = GetComponent<IceEffect>();
+        if (ice != null && ice.enabled)
+        {
+            SetEffectColor(Color.cyan);
+            return;
+        }
+
+        // Nếu vẫn còn hiệu ứng Độc đang bật thì hiển thị màu Green
+        ToxicEffect toxic = GetComponent<ToxicEffect>();
+        if (toxic != null && toxic.enabled)
+        {
+            SetEffectColor(Color.green);
+            return;
+        }
+
+        // Khôi phục màu gốc chính xác tuyệt đối
+        if (m_MeshRenderers == null || m_OriginalColors == null) return;
+        for (int i = 0; i < m_MeshRenderers.Length; i++)
+        {
+            if (m_MeshRenderers[i] != null && m_MeshRenderers[i].material != null && i < m_OriginalColors.Length)
+            {
+                m_MeshRenderers[i].material.color = m_OriginalColors[i];
+            }
         }
     }
 
@@ -265,7 +339,7 @@ public class TankHealth : MonoBehaviourPun
         if (m_ExplosionAudio != null)
             m_ExplosionAudio.Play();
 
-        if (PhotonNetwork.InRoom && photonView != null && photonView.IsMine)
+        if (PhotonNetwork.InRoom && photonView != null && photonView.IsMine && GetComponent<TankDecoy>() == null)
             ReportMatchResult();
 
         gameObject.SetActive(false);
@@ -273,9 +347,14 @@ public class TankHealth : MonoBehaviourPun
 
     private void ReportMatchResult()
     {
+        if (GetComponent<TankDecoy>() != null) return;
+
         TankHealth[] remainingTanks = FindObjectsOfType<TankHealth>();
         for (int i = 0; i < remainingTanks.Length; i++)
         {
+            if (remainingTanks[i].GetComponent<TankDecoy>() != null)
+                continue;
+
             PhotonView remainingView = remainingTanks[i].GetComponent<PhotonView>();
             if (remainingView == null || remainingView.ViewID == 0 || remainingView.OwnerActorNr == photonView.OwnerActorNr)
                 continue;

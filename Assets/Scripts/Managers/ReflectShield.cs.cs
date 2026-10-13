@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class ReflectShield : MonoBehaviour
@@ -131,7 +131,8 @@ public class ReflectShield : MonoBehaviour
 
         ShellExplosion shell = projectileCollider.GetComponentInParent<ShellExplosion>();
         HomingMissile missile = projectileCollider.GetComponentInParent<HomingMissile>();
-        if (shell == null && missile == null)
+        ElementalShell elem = projectileCollider.GetComponentInParent<ElementalShell>();
+        if (shell == null && missile == null && elem == null)
             return;
 
         if (shellRb.velocity.sqrMagnitude > 0.01f)
@@ -139,6 +140,9 @@ public class ReflectShield : MonoBehaviour
             shellRb.velocity = -shellRb.velocity;
             projectileCollider.transform.forward = -projectileCollider.transform.forward;
         }
+
+        if (elem != null)
+            elem.m_IsReflected = true;
 
         if (missile != null)
             missile.ReflectFrom(tank);
