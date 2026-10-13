@@ -1,4 +1,5 @@
 using UnityEngine;
+using Photon.Pun;
 
 public static class ItemDropSystem
 {
@@ -15,22 +16,35 @@ public static class ItemDropSystem
             return;
 
         string prefabName = itemPrefabNames[Random.Range(0, itemPrefabNames.Length)];
-        GameObject prefab = Resources.Load<GameObject>(prefabName);
-        if (prefab == null)
+        Quaternion rotation = Quaternion.identity;
+        if (prefabName == "ToolChest3D" || prefabName == "FuelTank3D")
+            rotation = Quaternion.Euler(-90f, 0f, 0f);
+
+        GameObject pickup;
+        if (PhotonNetwork.InRoom)
         {
-            Debug.LogError("Could not load pickup prefab from Resources: " + prefabName);
-            return;
+            pickup = PhotonNetwork.Instantiate(prefabName, position, rotation);
+        }
+        else
+        {
+            GameObject prefab = Resources.Load<GameObject>(prefabName);
+            if (prefab == null)
+            {
+                Debug.LogError("Could not load pickup prefab from Resources: " + prefabName);
+                return;
+            }
+            pickup = Object.Instantiate(prefab, position, rotation);
         }
 
-        GameObject pickup = Object.Instantiate(prefab, position, Quaternion.identity);
-        if (prefabName == "ToolChest3D" || prefabName == "FuelTank3D")
-            pickup.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
-        ItemScaleUtility.MatchTankSize(pickup);
-        ItemScaleUtility.AlignBottomToHeight(pickup, groundHeight);
-        ItemPickup item = pickup.GetComponent<ItemPickup>();
-        if (item == null)
-            item = pickup.AddComponent<ItemPickup>();
-        item.type = GetPickupType(prefabName);
+        if (pickup != null)
+        {
+            ItemScaleUtility.MatchTankSize(pickup);
+            ItemScaleUtility.AlignBottomToHeight(pickup, groundHeight);
+            ItemPickup item = pickup.GetComponent<ItemPickup>();
+            if (item == null)
+                item = pickup.AddComponent<ItemPickup>();
+            item.type = GetPickupType(prefabName);
+        }
     }
 
     private static PickupType GetPickupType(string prefabName)

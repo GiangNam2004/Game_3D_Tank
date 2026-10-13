@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Photon.Pun; 
@@ -97,19 +97,24 @@ public class TankShooting : MonoBehaviourPun
     private float botTargetRefreshTimer;
 
     // ============================================
-    // GÓI GỌN TỐC ĐỘ BAY VÀO LỆNH TẠO MẠNG (KHÔNG DÙNG RPC NỮA)
+    // GÓI GỌN TỐC ĐỘ BAY VÀ KÍCH THƯỚC VÀO LỆNH TẠO MẠNG
     // ============================================
-    private GameObject NetworkInstantiate(GameObject prefab, Vector3 position, Quaternion rotation, Vector3 velocity = default(Vector3))
+    private GameObject NetworkInstantiate(GameObject prefab, Vector3 position, Quaternion rotation, Vector3 velocity = default(Vector3), Vector3 scale = default(Vector3))
     {
+        if (scale == default(Vector3)) scale = Vector3.one;
+
         if (PhotonNetwork.InRoom)
         {
-            // Nén tốc độ vào InstantiationData
-            object[] data = new object[] { velocity };
-            return PhotonNetwork.Instantiate(prefab.name, position, rotation, 0, data);
+            // Nén tốc độ và kích thước vào InstantiationData
+            object[] data = new object[] { velocity, scale };
+            GameObject obj = PhotonNetwork.Instantiate(prefab.name, position, rotation, 0, data);
+            obj.transform.localScale = scale;
+            return obj;
         }
         else
         {
             GameObject obj = Instantiate(prefab, position, rotation);
+            obj.transform.localScale = scale;
             Rigidbody rb = obj.GetComponent<Rigidbody>();
             if (rb != null && velocity != Vector3.zero) rb.velocity = velocity;
             return obj;
@@ -334,15 +339,15 @@ public class TankShooting : MonoBehaviourPun
         isCharging = false;
         
         NetworkInstantiate(m_Shell.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_CurrentLaunchForce * m_FireTransform.forward);
+        PlayShootEffect();
 
-        if (m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play (); }
         m_CurrentLaunchForce = m_MinLaunchForce;
     }
 
     public void FireSpreadShot() { 
         if (Time.time < m_NextSkillTime) return; 
         
-        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation, m_FireTransform); 
+        PlayShootEffect();
 
         float angle = 20f; Vector3 spawnPos = m_FireTransform.position; Vector3 offset = m_FireTransform.right * 1f; 
         Quaternion centerRot = m_FireTransform.rotation; 
@@ -354,54 +359,51 @@ public class TankShooting : MonoBehaviourPun
         NetworkInstantiate(m_Shell.gameObject, spawnPos - offset, leftRot, skillForce * (leftRot * Vector3.forward)); 
         NetworkInstantiate(m_Shell.gameObject, spawnPos + offset, rightRot, skillForce * (rightRot * Vector3.forward)); 
         
-        if(m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
         m_NextSkillTime = Time.time + m_SkillCooldown; 
     }
 
     public void DropMine() { 
         if (Time.time < m_NextMineTime) return; 
         Vector3 dropPos = transform.position - transform.forward * 2.5f; dropPos.y += 0.5f; 
-        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, dropPos, Quaternion.identity); 
+        PlaySpawnVFX(dropPos);
         if (m_MinePrefab != null) NetworkInstantiate(m_MinePrefab, dropPos, transform.rotation); 
         m_NextMineTime = Time.time + m_MineCooldown; 
     }
 
     public void FireHomingMissile() { 
         if (Time.time < m_NextHomingTime) return; 
-        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation, m_FireTransform); 
+        PlayShootEffect();
 
         GameObject shellObj = NetworkInstantiate(m_HomingShellPrefab.gameObject, m_FireTransform.position, m_FireTransform.rotation); 
         HomingMissile homingScript = shellObj.GetComponent<HomingMissile>(); 
         if (homingScript != null) homingScript.m_ShooterPlayerNumber = m_PlayerNumber; 
         
-        if(m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
         m_NextHomingTime = Time.time + m_HomingCooldown; 
     }
 
     public void FireGiantShell() { 
         if (Time.time < m_NextSkillTime) return; 
-        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation, m_FireTransform); 
+        PlayShootEffect();
 
-        GameObject shellObj = NetworkInstantiate(m_Shell.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_MaxLaunchForce * m_FireTransform.forward); 
-        shellObj.transform.localScale = new Vector3(3f, 3f, 3f); 
+        Vector3 giantScale = new Vector3(3f, 3f, 3f);
+        GameObject shellObj = NetworkInstantiate(m_Shell.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_MaxLaunchForce * m_FireTransform.forward, giantScale); 
         Rigidbody rb = shellObj.GetComponent<Rigidbody>();
         if(rb != null) rb.mass = 5f; 
         
-        if(m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
         m_NextSkillTime = Time.time + m_SkillCooldown; 
     }
 
     public void PlaceTurret() { 
         if (Time.time < m_NextMineTime) return; 
         Vector3 dropPos = transform.position + transform.right * 2f; 
-        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, dropPos, Quaternion.identity); 
+        PlaySpawnVFX(dropPos);
         if (m_TurretPrefab != null) { NetworkInstantiate(m_TurretPrefab, dropPos, transform.rotation); } 
         m_NextMineTime = Time.time + m_MineCooldown; 
     }
 
     public void CreateClone() { 
         if (Time.time < m_NextHomingTime) return; 
-        if (m_TeleportVFX != null) Instantiate(m_TeleportVFX, transform.position, Quaternion.identity); 
+        Vector3 startPos = transform.position;
 
         if (m_ClonePrefab != null) { 
             GameObject clone = NetworkInstantiate(m_ClonePrefab, transform.position, transform.rotation); 
@@ -412,7 +414,7 @@ public class TankShooting : MonoBehaviourPun
         if (Physics.Raycast(transform.position, transform.forward, out hit, dashDistance)) { dashTarget = hit.point - transform.forward * 1.5f; } 
         
         transform.position = dashTarget; 
-        if (m_TeleportVFX != null) Instantiate(m_TeleportVFX, transform.position, Quaternion.identity); 
+        PlayTeleportVFX(startPos, dashTarget);
         m_NextHomingTime = Time.time + m_HomingCooldown; 
     }
 
@@ -427,20 +429,19 @@ public class TankShooting : MonoBehaviourPun
 
     public void FireElementalShot() { 
         if (Time.time < m_NextSkillTime) return; 
-        if (m_MuzzleFlashVFX != null) Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation, m_FireTransform);
+        PlayShootEffect();
 
         Rigidbody shellPrefab = m_IsNextIce ? m_IceShellPrefab : m_ToxicShellPrefab; 
         if (shellPrefab != null) { 
             NetworkInstantiate(shellPrefab.gameObject, m_FireTransform.position, m_FireTransform.rotation, m_CurrentLaunchForce * m_FireTransform.forward); 
         } 
         m_IsNextIce = !m_IsNextIce; 
-        if (m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); } 
         m_NextSkillTime = Time.time + m_SkillCooldown; 
     }
 
     public void ActivateShield() { 
         if (Time.time < m_NextHomingTime) return; 
-        if (m_SpawnVFX != null) Instantiate(m_SpawnVFX, transform.position, Quaternion.identity); 
+        PlaySpawnVFX(transform.position);
         if (m_ShieldPrefab != null) { NetworkInstantiate(m_ShieldPrefab, transform.position, transform.rotation); } 
         m_NextHomingTime = Time.time + m_HomingCooldown; 
     }
@@ -449,6 +450,10 @@ public class TankShooting : MonoBehaviourPun
     {
         if (Time.time < m_NextSkillTime) return;
         StartCoroutine(DeathSpinRoutine());
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlayDeathSpinVFX", RpcTarget.Others, 2f);
+        }
         m_NextSkillTime = Time.time + m_SkillCooldown;
     }
 
@@ -475,12 +480,17 @@ public class TankShooting : MonoBehaviourPun
                 {
                     GameObject flash = Instantiate(m_MuzzleFlashVFX, spawnPos, rotation);
                     flash.transform.SetParent(transform, true); 
+                    Destroy(flash, 1.5f);
                 }
 
                 NetworkInstantiate(m_Shell.gameObject, spawnPos, rotation, m_MaxLaunchForce * fireDir);
             }
             spinOffset += 15f; 
-            if (m_ShootingAudio != null&& m_ShootingAudio.isActiveAndEnabled) { m_ShootingAudio.clip = m_FireClip; m_ShootingAudio.Play(); }
+            if (m_ShootingAudio != null && m_ShootingAudio.isActiveAndEnabled && m_FireClip != null) 
+            { 
+                m_ShootingAudio.clip = m_FireClip; 
+                m_ShootingAudio.Play(); 
+            }
             
             timer += fireRate;
             yield return new WaitForSeconds(fireRate);
@@ -489,10 +499,28 @@ public class TankShooting : MonoBehaviourPun
         if (activeSpinVFX != null) Destroy(activeSpinVFX);
     }
 
+    [PunRPC]
+    public void RPC_PlayDeathSpinVFX(float duration)
+    {
+        StartCoroutine(RemoteDeathSpinRoutine(duration));
+    }
+
+    private IEnumerator RemoteDeathSpinRoutine(float duration)
+    {
+        GameObject activeSpinVFX = null;
+        if (m_DeathSpinVFX != null) activeSpinVFX = Instantiate(m_DeathSpinVFX, transform.position, Quaternion.identity, transform);
+        yield return new WaitForSeconds(duration);
+        if (activeSpinVFX != null) Destroy(activeSpinVFX);
+    }
+
     public void ActivateMagneticPull()
     {
         if (Time.time < m_NextMineTime) return;
         StartCoroutine(MagneticPullRoutine());
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlayMagneticPullVFX", RpcTarget.Others, 1.5f);
+        }
         m_NextMineTime = Time.time + m_MineCooldown;
     }
 
@@ -538,7 +566,11 @@ public class TankShooting : MonoBehaviourPun
 
         if (activePullVFX != null) Destroy(activePullVFX);
 
-        if (m_MagneticExplosion != null) Instantiate(m_MagneticExplosion, transform.position, Quaternion.identity);
+        if (m_MagneticExplosion != null) 
+        {
+            GameObject exp = Instantiate(m_MagneticExplosion, transform.position, Quaternion.identity);
+            Destroy(exp, 2.5f);
+        }
 
         Collider[] damageHits = Physics.OverlapSphere(transform.position, pullRadius);
         foreach(Collider hit in damageHits)
@@ -555,10 +587,37 @@ public class TankShooting : MonoBehaviourPun
         }
     }
 
+    [PunRPC]
+    public void RPC_PlayMagneticPullVFX(float duration)
+    {
+        StartCoroutine(RemoteMagneticPullRoutine(duration));
+    }
+
+    private IEnumerator RemoteMagneticPullRoutine(float duration)
+    {
+        GameObject activePullVFX = null;
+        if (m_MagneticPullVFX != null)
+        {
+            activePullVFX = Instantiate(m_MagneticPullVFX, transform.position + Vector3.up * 0.2f, Quaternion.Euler(-90f, 0f, 0f));
+            activePullVFX.transform.SetParent(transform, true);
+        }
+        yield return new WaitForSeconds(duration);
+        if (activePullVFX != null) Destroy(activePullVFX);
+        if (m_MagneticExplosion != null)
+        {
+            GameObject exp = Instantiate(m_MagneticExplosion, transform.position, Quaternion.identity);
+            Destroy(exp, 2.5f);
+        }
+    }
+
     public void ActivateDash()
     {
         if (Time.time < m_NextHomingTime || isDashing) return;
         StartCoroutine(DashRoutine());
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlayDashVFX", RpcTarget.Others, m_DashDuration);
+        }
         m_NextHomingTime = Time.time + m_HomingCooldown;
     }
 
@@ -594,7 +653,15 @@ public class TankShooting : MonoBehaviourPun
                             knockbackDir.y = 0; 
                             enemyRb.position += knockbackDir * 4f; 
                             
-                            if (m_DashImpactVFX != null) Instantiate(m_DashImpactVFX, enemyRb.position, Quaternion.identity);
+                            if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+                            {
+                                photonView.RPC("RPC_PlayDashImpactVFX", RpcTarget.All, enemyRb.position);
+                            }
+                            else if (m_DashImpactVFX != null)
+                            {
+                                GameObject impact = Instantiate(m_DashImpactVFX, enemyRb.position, Quaternion.identity);
+                                Destroy(impact, 2f);
+                            }
                             enemyRb.SendMessage("TakeDamage", m_DashDamage, SendMessageOptions.DontRequireReceiver);
                         }
                     }
@@ -607,5 +674,103 @@ public class TankShooting : MonoBehaviourPun
         if (activeDashVFX != null) Destroy(activeDashVFX);
         isDashing = false; 
         if (movementScript != null) movementScript.enabled = true; 
+    }
+
+    [PunRPC]
+    public void RPC_PlayDashVFX(float duration)
+    {
+        StartCoroutine(RemoteDashRoutine(duration));
+    }
+
+    private IEnumerator RemoteDashRoutine(float duration)
+    {
+        GameObject activeDashVFX = null;
+        if (m_DashVFX != null) activeDashVFX = Instantiate(m_DashVFX, transform.position, transform.rotation, transform);
+        yield return new WaitForSeconds(duration);
+        if (activeDashVFX != null) Destroy(activeDashVFX);
+    }
+
+    [PunRPC]
+    public void RPC_PlayDashImpactVFX(Vector3 hitPos)
+    {
+        if (m_DashImpactVFX != null)
+        {
+            GameObject impact = Instantiate(m_DashImpactVFX, hitPos, Quaternion.identity);
+            Destroy(impact, 2f);
+        }
+    }
+
+    private void PlayShootEffect()
+    {
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlayShootEffect", RpcTarget.All);
+        }
+        else
+        {
+            RPC_PlayShootEffect();
+        }
+    }
+
+    [PunRPC]
+    public void RPC_PlayShootEffect()
+    {
+        if (m_MuzzleFlashVFX != null && m_FireTransform != null)
+        {
+            GameObject flash = Instantiate(m_MuzzleFlashVFX, m_FireTransform.position, m_FireTransform.rotation, m_FireTransform);
+            Destroy(flash, 1.5f);
+        }
+
+        if (m_ShootingAudio != null && m_ShootingAudio.isActiveAndEnabled && m_FireClip != null)
+        {
+            m_ShootingAudio.clip = m_FireClip;
+            m_ShootingAudio.Play();
+        }
+    }
+
+    private void PlaySpawnVFX(Vector3 pos)
+    {
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlaySpawnVFX", RpcTarget.All, pos);
+        }
+        else
+        {
+            RPC_PlaySpawnVFX(pos);
+        }
+    }
+
+    [PunRPC]
+    public void RPC_PlaySpawnVFX(Vector3 pos)
+    {
+        if (m_SpawnVFX != null)
+        {
+            GameObject vfx = Instantiate(m_SpawnVFX, pos, Quaternion.identity);
+            Destroy(vfx, 2f);
+        }
+    }
+
+    private void PlayTeleportVFX(Vector3 startPos, Vector3 endPos)
+    {
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("RPC_PlayTeleportVFX", RpcTarget.All, startPos, endPos);
+        }
+        else
+        {
+            RPC_PlayTeleportVFX(startPos, endPos);
+        }
+    }
+
+    [PunRPC]
+    public void RPC_PlayTeleportVFX(Vector3 startPos, Vector3 endPos)
+    {
+        if (m_TeleportVFX != null)
+        {
+            GameObject vfx1 = Instantiate(m_TeleportVFX, startPos, Quaternion.identity);
+            Destroy(vfx1, 2f);
+            GameObject vfx2 = Instantiate(m_TeleportVFX, endPos, Quaternion.identity);
+            Destroy(vfx2, 2f);
+        }
     }
 }

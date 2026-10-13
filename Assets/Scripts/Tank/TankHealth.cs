@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using Photon.Pun; 
 
@@ -78,24 +78,144 @@ public class TankHealth : MonoBehaviourPun
             return true;
 
             case PickupType.FuelTank:
-                TankMovement movement = GetComponent<TankMovement>();
-                if (movement != null)
-                    movement.ApplySpeedBoost(speedMultiplier, speedDuration);
+                if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+                    photonView.RPC("ApplySpeedBoostRPC", RpcTarget.All, speedMultiplier, speedDuration);
+                else
+                    ApplySpeedBoostRPC(speedMultiplier, speedDuration);
                 return true;
 
             case PickupType.ReflectShield:
-                return ActivateReflectShield();
+                if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+                    photonView.RPC("ActivateReflectShieldRPC", RpcTarget.All);
+                else
+                    ActivateReflectShield();
+                return true;
         }
 
         return false;
     }
 
-    // HÀM MỚI: Đồng bộ lượng máu được hồi qua mạng
+    [PunRPC]
+    public void ActivateReflectShieldRPC()
+    {
+        ActivateReflectShield();
+    }
+
+    // HÀM: Đồng bộ lượng máu được hồi qua mạng kèm hiệu ứng phát sáng xanh lá
     [PunRPC]
     public void HealRPC(float amount)
     {
         m_CurrentHealth = Mathf.Min(m_StartingHealth, m_CurrentHealth + amount);
         SetHealthUI();
+        StartCoroutine(HealFlashRoutine());
+    }
+
+    private System.Collections.IEnumerator HealFlashRoutine()
+    {
+        MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>();
+        if (renderers == null || renderers.Length == 0) yield break;
+
+        Color[] originalColors = new Color[renderers.Length];
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material != null)
+            {
+                originalColors[i] = renderers[i].material.color;
+                renderers[i].material.color = Color.Lerp(originalColors[i], Color.green, 0.6f);
+            }
+        }
+
+        yield return new WaitForSeconds(0.4f);
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material != null)
+            {
+                renderers[i].material.color = originalColors[i];
+            }
+        }
+    }
+
+    // HÀM: Đồng bộ tăng tốc độ qua mạng kèm hiệu ứng vàng rực
+    [PunRPC]
+    public void ApplySpeedBoostRPC(float multiplier, float duration)
+    {
+        TankMovement movement = GetComponent<TankMovement>();
+        if (movement != null)
+        {
+            movement.ApplySpeedBoost(multiplier, duration);
+        }
+        StartCoroutine(SpeedBoostFlashRoutine(duration));
+    }
+
+    private System.Collections.IEnumerator SpeedBoostFlashRoutine(float duration)
+    {
+        MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>();
+        if (renderers == null || renderers.Length == 0) yield break;
+
+        Color[] originalColors = new Color[renderers.Length];
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material != null)
+            {
+                originalColors[i] = renderers[i].material.color;
+                renderers[i].material.color = Color.Lerp(originalColors[i], Color.yellow, 0.45f);
+            }
+        }
+
+        yield return new WaitForSeconds(duration);
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].material != null)
+            {
+                renderers[i].material.color = originalColors[i];
+            }
+        }
+    }
+
+    // HÀM: Đồng bộ hiệu ứng Đóng Băng qua mạng
+    public void ApplyIceEffect()
+    {
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("ApplyIceEffectRPC", RpcTarget.All);
+        }
+        else
+        {
+            ApplyIceEffectRPC();
+        }
+    }
+
+    [PunRPC]
+    public void ApplyIceEffectRPC()
+    {
+        if (GetComponent<IceEffect>() == null)
+        {
+            gameObject.AddComponent<IceEffect>();
+        }
+    }
+
+    // HÀM: Đồng bộ hiệu ứng Nhiễm Độc qua mạng
+    public void ApplyToxicEffect()
+    {
+        if (PhotonNetwork.InRoom && photonView != null && photonView.ViewID != 0)
+        {
+            photonView.RPC("ApplyToxicEffectRPC", RpcTarget.All);
+        }
+        else
+        {
+            ApplyToxicEffectRPC();
+        }
+    }
+
+    [PunRPC]
+    public void ApplyToxicEffectRPC()
+    {
+        if (GetComponent<ToxicEffect>() == null)
+        {
+            gameObject.AddComponent<ToxicEffect>();
+        }
     }
 
     private bool ActivateReflectShield()
@@ -109,6 +229,12 @@ public class TankHealth : MonoBehaviourPun
 
         GameObject shieldObject = Instantiate(shieldPrefab, transform);
         shieldObject.transform.localPosition = Vector3.zero;
+
+        // Xóa ItemPickup nếu có để khiên bảo vệ trên xe không vô tình hành xử như vật phẩm nhặt
+        ItemPickup pickup = shieldObject.GetComponent<ItemPickup>();
+        if (pickup != null)
+            Destroy(pickup);
+
         ReflectShield shield = shieldObject.GetComponent<ReflectShield>();
         if (shield == null)
             shield = shieldObject.AddComponent<ReflectShield>();

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class HomingMissile : MonoBehaviour
 {
@@ -33,10 +33,13 @@ public class HomingMissile : MonoBehaviour
 
             // 2. NHẬN DIỆN ĐỊCH/TA (Hỗ trợ cả Online và Offline)
             bool isMyTank = false;
-            if (Photon.Pun.PhotonNetwork.IsConnected)
+            if (Photon.Pun.PhotonNetwork.IsConnected && Photon.Pun.PhotonNetwork.InRoom)
             {
                 Photon.Pun.PhotonView targetView = allTanks[i].GetComponent<Photon.Pun.PhotonView>();
-                if (targetView != null && targetView.IsMine) 
+                Photon.Pun.PhotonView myView = GetComponent<Photon.Pun.PhotonView>();
+                if (targetView != null && myView != null && targetView.OwnerActorNr == myView.OwnerActorNr) 
+                    isMyTank = true;
+                else if (targetView != null && targetView.IsMine && myView == null)
                     isMyTank = true;
             }
             else

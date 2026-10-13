@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using UnityEngine;
+using Photon.Pun;
 
 public class ElementalShell : MonoBehaviour
 {
@@ -7,19 +8,38 @@ public class ElementalShell : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
-        // Trúng xe tăng địch
-        if (other.CompareTag("Player") || other.GetComponent<TankHealth>() != null)
+        ReflectShield shield = other.GetComponentInParent<ReflectShield>();
+        if (shield != null) return;
+
+        // Trúng xe tăng
+        TankHealth targetHealth = other.GetComponentInParent<TankHealth>();
+        if (targetHealth != null && targetHealth.isActiveAndEnabled)
         {
             if (bulletType == ElementType.Ice)
             {
-                other.gameObject.AddComponent<IceEffect>();
+                targetHealth.ApplyIceEffect();
             }
             else if (bulletType == ElementType.Toxic)
             {
-                other.gameObject.AddComponent<ToxicEffect>();
+                targetHealth.ApplyToxicEffect();
             }
         }
-        // Nổ xong thì xóa đạn
-        Destroy(gameObject);
+
+        // Nếu không có ShellExplosion thì mới tự hủy
+        if (GetComponent<ShellExplosion>() == null)
+        {
+            if (PhotonNetwork.InRoom)
+            {
+                PhotonView pv = GetComponent<PhotonView>();
+                if (pv != null && pv.IsMine)
+                {
+                    PhotonNetwork.Destroy(gameObject);
+                }
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+        }
     }
 }

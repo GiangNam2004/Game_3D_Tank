@@ -1,7 +1,7 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Photon.Pun; 
 
-public class ShellExplosion : MonoBehaviourPun 
+public class ShellExplosion : MonoBehaviourPun, IPunInstantiateMagicCallback
 {
     public LayerMask m_TankMask;                        
     public ParticleSystem m_ExplosionParticles;         
@@ -12,6 +12,37 @@ public class ShellExplosion : MonoBehaviourPun
     public float m_ExplosionRadius = 5f;                
 
     private bool m_Exploded = false; 
+
+    public void OnPhotonInstantiate(PhotonMessageInfo info)
+    {
+        if (info.photonView != null && info.photonView.InstantiationData != null)
+        {
+            object[] data = info.photonView.InstantiationData;
+            if (data.Length > 0 && data[0] is Vector3)
+            {
+                Vector3 velocity = (Vector3)data[0];
+                Rigidbody rb = GetComponent<Rigidbody>();
+                if (rb != null && velocity != Vector3.zero)
+                {
+                    rb.velocity = velocity;
+                }
+            }
+
+            if (data.Length > 1 && data[1] is Vector3)
+            {
+                Vector3 customScale = (Vector3)data[1];
+                if (customScale != Vector3.zero)
+                {
+                    transform.localScale = customScale;
+                    if (customScale.x > 1.5f)
+                    {
+                        m_ExplosionRadius *= customScale.x;
+                        m_MaxDamage *= customScale.x;
+                    }
+                }
+            }
+        }
+    }
 
     private void Start ()
     {
@@ -103,14 +134,18 @@ public class ShellExplosion : MonoBehaviourPun
         if (m_ExplosionParticles != null)
         {
             m_ExplosionParticles.transform.position = explosionPosition;
+            if (transform.localScale.x > 1.2f)
+            {
+                m_ExplosionParticles.transform.localScale = transform.localScale;
+            }
             m_ExplosionParticles.transform.parent = null;
             m_ExplosionParticles.Play();
             Destroy(m_ExplosionParticles.gameObject, m_ExplosionParticles.main.duration);
         }
         
-        if (m_ExplosionAudio != null && m_ExplosionAudio.isActiveAndEnabled) 
+        if (m_ExplosionAudio != null && m_ExplosionAudio.clip != null) 
         {
-            m_ExplosionAudio.Play();
+            AudioSource.PlayClipAtPoint(m_ExplosionAudio.clip, explosionPosition);
         }
     }
 
